@@ -249,22 +249,24 @@
         var tag = document.activeElement.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         var w    = timeline.getWindow();
-        var span = w.end - w.start;
+        var s    = w.start.getTime();
+        var en   = w.end.getTime();
+        var span = en - s;
         var pan  = span * 0.2;
         var opts = { animation: { duration: 180, easingFunction: 'easeInOutQuad' } };
         if (e.key === 'ArrowLeft') {
-            timeline.setWindow(new Date(w.start - pan), new Date(w.end - pan), opts);
+            timeline.setWindow(new Date(s - pan), new Date(en - pan), opts);
             e.preventDefault();
         } else if (e.key === 'ArrowRight') {
-            timeline.setWindow(new Date(w.start + pan), new Date(w.end + pan), opts);
+            timeline.setWindow(new Date(s + pan), new Date(en + pan), opts);
             e.preventDefault();
         } else if (e.key === '+' || e.key === '=') {
             var z = span * 0.2;
-            timeline.setWindow(new Date(w.start + z), new Date(w.end - z), opts);
+            timeline.setWindow(new Date(s + z), new Date(en - z), opts);
             e.preventDefault();
         } else if (e.key === '-') {
             var z = span * 0.4;
-            timeline.setWindow(new Date(w.start - z), new Date(w.end + z), opts);
+            timeline.setWindow(new Date(s - z), new Date(en + z), opts);
             e.preventDefault();
         } else if (e.key === 'Escape') {
             closeEventPopup();
