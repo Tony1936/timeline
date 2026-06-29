@@ -304,9 +304,15 @@
     window.galleryNav = galleryNav;
 
     /* ── Event popup ──────────────────────────────────────────── */
-    var mdParse = (typeof marked !== 'undefined') ? marked.parse : function (t) {
-        return t.replace(/\n/g, '<br>');
-    };
+    function mdParse(text) {
+        try {
+            if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                var result = marked.parse(text);
+                if (typeof result === 'string') { return result; }
+            }
+        } catch (e) {}
+        return text.replace(/\n/g, '<br>');
+    }
 
     timeline.on('select', function (properties) {
         if (!properties.items.length) return;
@@ -381,7 +387,7 @@
     function closeEventPopup() {
         document.getElementById('eventPopup').style.display   = 'none';
         document.getElementById('popupOverlay').style.display = 'none';
-        timeline.setSelection([]);
+        try { timeline.setSelection([]); } catch (e) {}
     }
 
     document.getElementById('popupOverlay').onclick = closeEventPopup;
