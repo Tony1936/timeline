@@ -80,6 +80,7 @@ class Event(db.Model):
 
     title       = db.Column(db.String(300), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    link_url    = db.Column(db.String(500), nullable=True)
 
     start_text = db.Column(db.String(20), nullable=True)
     end_text   = db.Column(db.String(20), nullable=True)
@@ -94,3 +95,16 @@ class Event(db.Model):
 
     timeline_id = db.Column(db.Integer, db.ForeignKey("timelines.id"), nullable=False)
     role_id     = db.Column(db.Integer, db.ForeignKey("roles.id"),     nullable=False)
+
+    gallery_images = db.relationship("EventGalleryImage", backref="event",
+                                     cascade="all, delete-orphan",
+                                     order_by="EventGalleryImage.sort_order")
+
+
+class EventGalleryImage(db.Model):
+    __tablename__ = "event_gallery_images"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    event_id   = db.Column(db.Integer, db.ForeignKey("events.id"), nullable=False)
+    image_id   = db.Column(db.Integer, db.ForeignKey("timeline_images.id"), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)

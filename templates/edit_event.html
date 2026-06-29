@@ -63,6 +63,22 @@
                         <option value="{{ m.id }}" {% if event.map_asset_id == m.id %}selected{% endif %}>{{ m.filename }}</option>
                     {% endfor %}
                 </select>
+            </label><br><br>
+
+            <label>Gallery Images (hold Ctrl/Cmd to pick multiple)
+                <span class="assets-link-hint">
+                    — <a href="{{ url_for('manage_assets', timeline_id=timeline.id) }}">Manage Images</a>
+                </span><br>
+                {% set gallery_ids = event.gallery_images | map(attribute='image_id') | list %}
+                <select name="gallery_image_ids" id="gallery_select" multiple style="width:100%; min-height:80px;">
+                    {% for img in images %}
+                        <option value="{{ img.id }}" {% if img.id in gallery_ids %}selected{% endif %}>{{ img.filename }}</option>
+                    {% endfor %}
+                </select>
+            </label><br><br>
+
+            <label>External Link (optional)<br>
+                <input type="url" name="link_url" value="{{ event.link_url or '' }}" placeholder="https://..." style="width:100%;">
             </label>
 
         </div>

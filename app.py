@@ -9,7 +9,7 @@ from flask import (Flask, render_template, request, redirect,
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from sqlalchemy.pool import NullPool
-from models import db, Timeline, Role, Event, User, TimelinePermission, TimelineImage, TimelineMap
+from models import db, Timeline, Role, Event, User, TimelinePermission, TimelineImage, TimelineMap, EventGalleryImage
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sqlite3.db'
@@ -501,6 +501,7 @@ def view_timeline(timeline_id):
         else:
             content_html = ev.title
 
+        gallery_ids = [gi.image_id for gi in ev.gallery_images]
         items.append({
             "id":          ev.id,
             "content":     content_html,
@@ -508,7 +509,9 @@ def view_timeline(timeline_id):
             "end":         to_iso(ev.end_text),
             "group":       ev.role_id,
             "description": ev.description or "",
-            "maps_id":     ev.map_asset_id or ""
+            "maps_id":     ev.map_asset_id or "",
+            "link_url":    ev.link_url or "",
+            "gallery_ids": gallery_ids,
         })
 
     sorted_roles = (Role.query
@@ -561,6 +564,7 @@ def add_event(timeline_id):
             start_text     = request.form["start_text"],
             end_text       = request.form["end_text"],
             description    = request.form["description"],
+            link_url       = request.form.get("link_url", "").strip() or None,
             role_id        = request.form.get("role_id"),
             timeline_id    = timeline_id,
             event_image_id = _img_id,
@@ -569,6 +573,15 @@ def add_event(timeline_id):
         ev.start_sort = normalise_date(ev.start_text)
         ev.end_sort   = normalise_date(ev.end_text)
         db.session.add(ev)
+        db.session.flush()
+        _gallery_ids = request.form.getlist("gallery_image_ids")
+        for i, gid in enumerate(_gallery_ids):
+            try:
+                gid_int = int(gid)
+                if TimelineImage.query.filter_by(id=gid_int, timeline_id=timeline_id).first():
+                    db.session.add(EventGalleryImage(event_id=ev.id, image_id=gid_int, sort_order=i))
+            except (ValueError, TypeError):
+                pass
         db.session.commit()
         flash("Event added", "success")
         return redirect(url_for("view_timeline", timeline_id=timeline_id))
@@ -611,6 +624,16 @@ def edit_event(event_id):
             _map_id = None
         ev.event_image_id = _img_id
         ev.map_asset_id   = _map_id
+        ev.link_url = request.form.get("link_url", "").strip() or None
+        EventGalleryImage.query.filter_by(event_id=ev.id).delete()
+        _gallery_ids = request.form.getlist("gallery_image_ids")
+        for i, gid in enumerate(_gallery_ids):
+            try:
+                gid_int = int(gid)
+                if TimelineImage.query.filter_by(id=gid_int, timeline_id=ev.timeline_id).first():
+                    db.session.add(EventGalleryImage(event_id=ev.id, image_id=gid_int, sort_order=i))
+            except (ValueError, TypeError):
+                pass
         db.session.commit()
         flash("Event updated", "success")
         return redirect(url_for("view_timeline", timeline_id=tl.id))
@@ -882,6 +905,7 @@ if __name__ == "__main__":
             ("events",    "event_image_id", "INTEGER DEFAULT NULL"),
             ("events",    "map_asset_id",   "INTEGER DEFAULT NULL"),
             ("timelines", "image_id",       "INTEGER DEFAULT NULL"),
+            ("events",    "link_url",       "VARCHAR(500) DEFAULT NULL"),
         ]
         with db.engine.connect() as conn:
             for tbl, col, ddl in _new_columns:
