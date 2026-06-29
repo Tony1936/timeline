@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Timeline{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap">
+    <link rel="stylesheet" href="https://unpkg.com/vis-timeline@7.7.0/styles/vis-timeline-graph2d.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/timeline.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+<header class="site-header">
+    <div class="site-header-inner">
+        <h1 class="site-title">Historical Timelines</h1>
+        <nav class="site-header-auth">
+            {% if current_user %}
+                <span class="auth-username">&#128100; {{ current_user.username }}{% if current_user.is_admin %} <span class="auth-admin-badge">admin</span>{% endif %}</span>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_users') }}" class="btn btn-sm">Manage Users</a>
+                    <form method="post" action="{{ url_for('admin_update') }}" style="display:inline;"
+                          onsubmit="return confirm('Pull latest code from GitHub and restart the app?')">
+                        <button type="submit" class="btn btn-sm btn-update">&#8593; Update App</button>
+                    </form>
+                    <a href="{{ url_for('admin_db_backup') }}" class="btn btn-sm btn-backup">&#11015; Backup DB</a>
+                    <form method="post" action="{{ url_for('admin_db_restore') }}"
+                          enctype="multipart/form-data" style="display:inline;"
+                          data-confirm="Replace the live database with the uploaded file? This cannot be undone.">
+                        <label class="btn btn-sm btn-restore" style="cursor:pointer;">
+                            &#11014; Restore DB
+                            <input type="file" name="db_file" accept=".db,.sqlite,.sqlite3"
+                                   style="display:none;" onchange="this.form.submit()">
+                        </label>
+                    </form>
+                {% endif %}
+                <form method="post" action="{{ url_for('logout') }}" style="display:inline;">
+                    <button type="submit" class="btn btn-sm">Logout</button>
+                </form>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn btn-sm">Login</a>
+            {% endif %}
+        </nav>
+    </div>
+</header>
+
+<main class="site-main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Custom confirm modal -->
+<div id="confirmOverlay" class="confirm-overlay" style="display:none;">
+    <div class="confirm-box">
+        <p id="confirmMessage" class="confirm-message"></p>
+        <div class="confirm-actions">
+            <button id="confirmOk"     class="btn btn-danger">Delete</button>
+            <button id="confirmCancel" class="btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/vis-timeline@7.7.0/standalone/umd/vis-timeline-graph2d.min.js"></script>
+<script src="{{ url_for('static', filename='js/timeline.js') }}"></script>
+<script>
+(function () {
+    var overlay  = document.getElementById('confirmOverlay');
+    var msgEl    = document.getElementById('confirmMessage');
+    var okBtn    = document.getElementById('confirmOk');
+    var cancelBtn = document.getElementById('confirmCancel');
+    var pendingForm = null;
+
+    function showConfirm(message, form) {
+        msgEl.textContent = message;
+        pendingForm = form;
+        overlay.style.display = 'flex';
+    }
+
+    function closeConfirm() {
+        overlay.style.display = 'none';
+        pendingForm = null;
+    }
+
+    okBtn.addEventListener('click', function () {
+        if (pendingForm) {
+            pendingForm.removeAttribute('data-confirm');
+            pendingForm.submit();
+        }
+        closeConfirm();
+    });
+
+    cancelBtn.addEventListener('click', closeConfirm);
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeConfirm();
+    });
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        var msg  = form.getAttribute('data-confirm');
+        if (msg) {
+            e.preventDefault();
+            showConfirm(msg, form);
+        }
+    });
+
+    window.showConfirm = showConfirm;
+}());
+</script>
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

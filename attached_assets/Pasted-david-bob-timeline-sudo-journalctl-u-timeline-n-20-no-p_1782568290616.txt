@@ -1,0 +1,22 @@
+david@bob:~/timeline $ sudo journalctl -u timeline -n 20 --no-pager
+Jun 27 14:43:49 bob gunicorn[2843]: [2026-06-27 14:43:49 +0100] [2843] [INFO] Using worker: sync
+Jun 27 14:43:49 bob gunicorn[2844]: [2026-06-27 14:43:49 +0100] [2844] [INFO] Booting worker with pid: 2844
+Jun 27 14:43:49 bob gunicorn[2845]: [2026-06-27 14:43:49 +0100] [2845] [INFO] Booting worker with pid: 2845
+Jun 27 14:43:49 bob gunicorn[2843]: [2026-06-27 14:43:49 +0100] [2843] [INFO] Control socket listening at /home/david/.gunicorn/gunicorn.ctl
+Jun 27 14:50:48 bob gunicorn[2843]: [2026-06-27 14:50:48 +0100] [2843] [INFO] Handling signal: term
+Jun 27 14:50:48 bob gunicorn[2844]: [2026-06-27 14:50:48 +0100] [2844] [INFO] Worker exiting (pid: 2844)
+Jun 27 14:50:48 bob systemd[1]: Stopping timeline.service - Historical Timelines Web App...
+Jun 27 14:50:48 bob gunicorn[2845]: [2026-06-27 14:50:48 +0100] [2845] [INFO] Worker exiting (pid: 2845)
+Jun 27 14:50:49 bob gunicorn[2843]: [2026-06-27 14:50:49 +0100] [2843] [INFO] Worker (pid:2844) was sent SIGTERM!
+Jun 27 14:50:49 bob gunicorn[2843]: [2026-06-27 14:50:49 +0100] [2843] [INFO] Shutting down: Master
+Jun 27 14:50:49 bob systemd[1]: timeline.service: Deactivated successfully.
+Jun 27 14:50:49 bob systemd[1]: Stopped timeline.service - Historical Timelines Web App.
+Jun 27 14:50:49 bob systemd[1]: timeline.service: Consumed 1.382s CPU time.
+Jun 27 14:50:49 bob systemd[1]: Started timeline.service - Historical Timelines Web App.
+Jun 27 14:50:49 bob gunicorn[2940]: [2026-06-27 14:50:49 +0100] [2940] [INFO] Starting gunicorn 26.0.0
+Jun 27 14:50:49 bob gunicorn[2940]: [2026-06-27 14:50:49 +0100] [2940] [INFO] Listening at: http://0.0.0.0:5010 (2940)
+Jun 27 14:50:49 bob gunicorn[2940]: [2026-06-27 14:50:49 +0100] [2940] [INFO] Using worker: sync
+Jun 27 14:50:49 bob gunicorn[2941]: [2026-06-27 14:50:49 +0100] [2941] [INFO] Booting worker with pid: 2941
+Jun 27 14:50:49 bob gunicorn[2942]: [2026-06-27 14:50:49 +0100] [2942] [INFO] Booting worker with pid: 2942
+Jun 27 14:50:49 bob gunicorn[2940]: [2026-06-27 14:50:49 +0100] [2940] [INFO] Control socket listening at /home/david/.gunicorn/gunicorn.ctl
+david@bob:~/timeline $

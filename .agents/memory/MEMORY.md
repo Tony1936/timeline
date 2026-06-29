@@ -1,0 +1,1 @@
+- [Pending feature: range-event date lines](range-event-lines.md) — draw connector lines from both start AND end of an event box down to the timeline axis

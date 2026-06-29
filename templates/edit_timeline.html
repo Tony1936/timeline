@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Timeline{% endblock %}
+
+{% block content %}
+
+<h2>Edit Timeline</h2>
+
+<form method="POST">
+
+    <label>Title</label><br>
+    <input type="text" name="title" value="{{ timeline.title }}" required style="width:520px;"><br><br>
+
+    <label>Description</label><br>
+    <textarea name="description" style="width:520px; height:140px;">{{ timeline.description or '' }}</textarea><br><br>
+
+    <label>Background Image</label><br>
+    <select name="timeline_image" id="timeline_image_select">
+        <option value="">(None)</option>
+        {% for img in images %}
+            <option value="{{ img.id }}" {% if timeline.image_id == img.id %}selected{% endif %}>{{ img.filename }}</option>
+        {% endfor %}
+    </select><br><br>
+
+    <img id="image_preview"
+         src="{% if timeline.image_id %}/image/{{ timeline.image_id }}{% endif %}"
+         style="max-width:300px; max-height:140px; object-fit:contain; border-radius:4px; margin-bottom:12px; {% if not timeline.image_id %}display:none;{% endif %}">
+
+    <script>
+    document.getElementById("timeline_image_select").addEventListener("change", function() {
+        const id = this.value;
+        const preview = document.getElementById("image_preview");
+        if (id) {
+            preview.src = "/image/" + id;
+            preview.style.display = "block";
+        } else {
+            preview.style.display = "none";
+        }
+    });
+    </script>
+
+    <br>
+    <button type="submit">Save Changes</button>
+
+</form>
+
+<br>
+<a href="{{ url_for('home') }}">Cancel</a>
+
+{% endblock %}

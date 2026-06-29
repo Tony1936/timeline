@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="home-content">
+
+    {% if current_user and current_user.is_admin %}
+    <a href="{{ url_for('add_timeline') }}" class="btn" style="margin-bottom:28px; display:inline-block;">
+        + New Timeline
+    </a>
+    {% endif %}
+
+    <ul class="timeline-list">
+    {% for info in timeline_info %}
+        <li class="timeline-list-item">
+            <div class="timeline-list-row">
+                <div>
+                    <a href="{{ url_for('view_timeline', timeline_id=info.timeline.id) }}" class="timeline-list-link">
+                        {{ info.timeline.title }}
+                    </a>
+                    <div class="timeline-list-meta">
+                        {% if info.date_range %}
+                            <span class="timeline-date-range">{{ info.date_range }}</span>
+                        {% endif %}
+                        <span class="timeline-event-count">
+                            {{ info.event_count }} event{% if info.event_count != 1 %}s{% endif %}
+                        </span>
+                    </div>
+                    {% if info.timeline.description %}
+                        <div class="timeline-list-desc">{{ info.timeline.description }}</div>
+                    {% endif %}
+                </div>
+                <div class="timeline-list-actions">
+                    {% if info.timeline.id in editable_ids %}
+                        <a href="{{ url_for('edit_timeline', timeline_id=info.timeline.id) }}" class="btn btn-sm">Edit</a>
+                    {% endif %}
+                    {% if current_user and current_user.is_admin %}
+                        <form method="post" action="{{ url_for('delete_timeline', timeline_id=info.timeline.id) }}"
+                              data-confirm="Delete '{{ info.timeline.title }}' and all its events? This cannot be undone."
+                              style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </li>
+    {% endfor %}
+    </ul>
+
+    {% if not current_user %}
+    <p class="home-login-hint">
+        <a href="{{ url_for('login') }}">Log in</a> to add or edit timeline data.
+    </p>
+    {% endif %}
+
+</div>
+
+{% endblock %}

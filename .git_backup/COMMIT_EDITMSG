@@ -1,0 +1,10 @@
+Apply Inter font globally and adjust description text size
+
+Update static/css/timeline.css to apply the Inter font family to html and body elements, and set the font-size for .popup-desc and hover link elements to 20px.
+
+Replit-Commit-Author: Agent
+Replit-Commit-Session-Id: ac7925ff-8266-4447-9793-4cc0fbcb887f
+Replit-Commit-Checkpoint-Type: full_checkpoint
+Replit-Commit-Event-Id: dd680e0f-925a-4800-ac89-a654caaa2e9d
+Replit-Commit-Screenshot-Url: https://storage.googleapis.com/screenshot-production-us-central1/bf153eb3-91c0-40d5-90c5-962d26ccb48c/ac7925ff-8266-4447-9793-4cc0fbcb887f/25UGzlS
+Replit-Helium-Checkpoint-Created: true

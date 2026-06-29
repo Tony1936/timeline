@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Access Denied — Historical Timelines{% endblock %}
+
+{% block content %}
+<div style="max-width:480px; margin:60px auto; text-align:center;">
+    <h2 style="color:#c84a3a;">Access Denied</h2>
+    <p style="color:#9a8c70; margin-bottom:24px;">
+        You do not have permission to perform this action.
+        {% if not current_user %}
+        Please <a href="{{ url_for('login') }}">log in</a> to continue.
+        {% endif %}
+    </p>
+    <a href="{{ url_for('home') }}" class="btn">&#8592; Back to Home</a>
+</div>
+{% endblock %}

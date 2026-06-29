@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Add Event{% endblock %}
+
+{% block content %}
+<h2>Add Event to {{ timeline.title }}</h2>
+
+<form method="post" action="{{ url_for('add_event', timeline_id=timeline.id) }}">
+
+    <div class="event-form-layout">
+
+        <div class="event-form-fields">
+
+            <label>Title<br>
+                <input type="text" name="title" required style="width:100%;">
+            </label><br><br>
+
+            <label>Start Date (DD-MM-YYYY, MM-YYYY, or YYYY)<br>
+                <input type="text" name="start_text" autocomplete="off" inputmode="text" pattern=".*" required style="width:100%;">
+            </label><br><br>
+
+            <label>End Date (optional)<br>
+                <input type="text" name="end_text" autocomplete="off" inputmode="text" pattern=".*" style="width:100%;">
+            </label><br><br>
+
+            <label>Role / Category<br>
+                <select name="role_id" required style="width:100%;">
+                    {% for r in timeline.roles %}
+                        <option value="{{ r.id }}">{{ r.name }}</option>
+                    {% endfor %}
+                </select>
+            </label><br><br>
+
+            <label>Event Image
+                <span class="assets-link-hint">
+                    — <a href="{{ url_for('manage_assets', timeline_id=timeline.id) }}">Manage Images</a>
+                </span><br>
+                <select name="event_image_id" id="event_image_select" style="width:100%;">
+                    <option value="">(No image)</option>
+                    {% for img in images %}
+                        <option value="{{ img.id }}">{{ img.filename }}</option>
+                    {% endfor %}
+                </select>
+            </label><br><br>
+
+            <img id="image_preview" src="" style="max-width:100%; max-height:140px; object-fit:contain; display:none; border-radius:4px;">
+
+            <br><br>
+
+            <label>Map
+                <span class="assets-link-hint">
+                    — <a href="{{ url_for('manage_assets', timeline_id=timeline.id) }}">Manage Maps</a>
+                </span><br>
+                <select name="map_asset_id" id="map_select" style="width:100%;">
+                    <option value="">(No map)</option>
+                    {% for m in maps %}
+                        <option value="{{ m.id }}">{{ m.filename }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+        </div>
+
+        <div class="event-form-description">
+            <label>Description<br>
+                <textarea name="description" class="desc-textarea"></textarea>
+            </label>
+
+            <div id="map_preview_wrap" class="map-form-preview" style="display:none;">
+                <p class="map-preview-label">Map Preview</p>
+                <img id="map_preview" src="" class="map-preview-img">
+            </div>
+        </div>
+
+    </div>
+
+    <br>
+    <button type="submit">Save Event</button>
+
+</form>
+
+<br>
+<a href="{{ url_for('view_timeline', timeline_id=timeline.id) }}">Back to Timeline</a>
+
+<script>
+(function () {
+    document.getElementById("event_image_select").addEventListener("change", function () {
+        var id = this.value;
+        var preview = document.getElementById("image_preview");
+        if (id) { preview.src = "/image/" + id; preview.style.display = "block"; }
+        else     { preview.style.display = "none"; }
+    });
+
+    document.getElementById("map_select").addEventListener("change", function () {
+        var id = this.value;
+        var wrap = document.getElementById("map_preview_wrap");
+        var preview = document.getElementById("map_preview");
+        if (id) { preview.src = "/map/" + id; wrap.style.display = "block"; }
+        else    { wrap.style.display = "none"; }
+    });
+}());
+</script>
+
+{% endblock %}

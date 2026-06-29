@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Assets — {{ timeline.title }}{% endblock %}
+
+{% block content %}
+<h2>Manage Assets — {{ timeline.title }}</h2>
+
+<p style="margin-bottom:28px;">
+    <a href="{{ url_for('view_timeline', timeline_id=timeline.id) }}" class="btn">&#8592; Back to Timeline</a>
+</p>
+
+<div class="assets-page">
+
+    <!-- ── Event Images ─────────────────────────── -->
+    <section class="assets-section">
+        <h3 class="assets-section-title">Event Images</h3>
+
+        <form method="post"
+              action="{{ url_for('upload_image', timeline_id=timeline.id) }}"
+              enctype="multipart/form-data"
+              class="asset-upload-form">
+            <label class="asset-file-label">
+                <input type="file" name="image_file" accept=".jpg,.jpeg,.png,.gif" required>
+            </label>
+            <button type="submit" class="btn">Upload Image</button>
+        </form>
+
+        {% if images %}
+        <div class="assets-grid">
+            {% for img in images %}
+            <div class="asset-card">
+                <img src="{{ url_for('serve_image', image_id=img.id) }}"
+                     alt="{{ img.filename }}" class="asset-thumb">
+                <p class="asset-name" title="{{ img.filename }}">{{ img.filename }}</p>
+                <form method="post"
+                      action="{{ url_for('delete_image', timeline_id=timeline.id, image_id=img.id) }}"
+                      data-confirm="Delete image '{{ img.filename }}'? Events using it will lose their image.">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="assets-empty">No images uploaded yet.</p>
+        {% endif %}
+    </section>
+
+    <!-- ── Maps ─────────────────────────────────── -->
+    <section class="assets-section">
+        <h3 class="assets-section-title">Maps</h3>
+
+        <form method="post"
+              action="{{ url_for('upload_map', timeline_id=timeline.id) }}"
+              enctype="multipart/form-data"
+              class="asset-upload-form">
+            <label class="asset-file-label">
+                <input type="file" name="map_file" accept=".jpg,.jpeg,.png" required>
+            </label>
+            <button type="submit" class="btn">Upload Map</button>
+        </form>
+
+        {% if maps %}
+        <div class="assets-grid">
+            {% for m in maps %}
+            <div class="asset-card">
+                <img src="{{ url_for('serve_map', map_id=m.id) }}"
+                     alt="{{ m.filename }}" class="asset-thumb">
+                <p class="asset-name" title="{{ m.filename }}">{{ m.filename }}</p>
+                <form method="post"
+                      action="{{ url_for('delete_map', timeline_id=timeline.id, map_id=m.id) }}"
+                      data-confirm="Delete map '{{ m.filename }}'? Events using it will lose their map.">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="assets-empty">No maps uploaded yet.</p>
+        {% endif %}
+    </section>
+
+</div>
+
+{% endblock %}

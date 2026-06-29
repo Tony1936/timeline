@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Roles for {{ timeline.title }}</h2>
+
+<form action="{{ url_for('add_role', timeline_id=timeline.id) }}" method="POST" style="margin-bottom:20px;">
+    <input type="text" name="name" placeholder="Role name" required autocomplete="off">
+    <button type="submit">Add Role</button>
+</form>
+
+<hr>
+
+<table class="roles-table">
+    <tbody>
+    {% for role in roles %}
+        <tr>
+            <td class="role-order-btns">
+                {% if not loop.first %}
+                <form method="post" action="{{ url_for('move_role', timeline_id=timeline.id, role_id=role.id, direction='up') }}" style="display:inline;">
+                    <button type="submit" class="btn btn-sm" title="Move up">&#9650;</button>
+                </form>
+                {% endif %}
+                {% if not loop.last %}
+                <form method="post" action="{{ url_for('move_role', timeline_id=timeline.id, role_id=role.id, direction='down') }}" style="display:inline;">
+                    <button type="submit" class="btn btn-sm" title="Move down">&#9660;</button>
+                </form>
+                {% endif %}
+            </td>
+            <td class="role-name">{{ role.name }}</td>
+            <td class="role-delete-btn">
+                <form method="post" action="{{ url_for('delete_role', timeline_id=timeline.id, role_id=role.id) }}"
+                      onsubmit="return confirm('Delete role &quot;{{ role.name }}&quot; and all its events?');"
+                      style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<br>
+<a href="{{ url_for('view_timeline', timeline_id=timeline.id) }}">Back to Timeline</a>
+
+{% endblock %}

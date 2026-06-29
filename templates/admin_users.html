@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users — Historical Timelines{% endblock %}
+
+{% block content %}
+<div class="admin-users-page">
+
+    <h2>Manage Users</h2>
+    <a href="{{ url_for('home') }}" class="btn btn-sm" style="margin-bottom:28px;display:inline-block;">&#8592; Back to Home</a>
+
+    <!-- ── Add new user ── -->
+    <section class="admin-section">
+        <h3 class="admin-section-title">Add New User</h3>
+        <form method="post" action="{{ url_for('admin_add_user') }}" class="admin-add-form">
+            <div class="admin-add-fields">
+                <div>
+                    <label for="new_username">Username</label>
+                    <input type="text" id="new_username" name="username" required autocomplete="off">
+                </div>
+                <div>
+                    <label for="new_password">Password</label>
+                    <input type="password" id="new_password" name="password" required autocomplete="new-password">
+                </div>
+                <div class="admin-add-admin-check">
+                    <label>
+                        <input type="checkbox" name="is_admin" value="1">
+                        Administrator
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn">Add User</button>
+        </form>
+    </section>
+
+    <!-- ── Existing users ── -->
+    <section class="admin-section">
+        <h3 class="admin-section-title">Existing Users</h3>
+
+        {% if users %}
+        <div class="user-cards">
+        {% for user in users %}
+            <div class="user-card">
+                <div class="user-card-header">
+                    <span class="user-card-name">{{ user.username }}</span>
+                    {% if user.id == current_user.id %}
+                        <span class="user-card-you">(you)</span>
+                    {% endif %}
+                    {% if user.is_admin %}
+                        <span class="auth-admin-badge">admin</span>
+                    {% endif %}
+                </div>
+
+                <!-- Permissions form -->
+                <form method="post"
+                      action="{{ url_for('admin_update_permissions', user_id=user.id) }}"
+                      class="user-perm-form">
+
+                    <div class="user-perm-admin">
+                        <label>
+                            <input type="checkbox" name="is_admin" value="1"
+                                   {% if user.is_admin %}checked{% endif %}
+                                   {% if user.id == current_user.id %}title="You cannot remove your own admin status"{% endif %}>
+                            Administrator
+                        </label>
+                    </div>
+
+                    {% if timelines %}
+                    <div class="user-perm-timelines">
+                        <p class="user-perm-label">Can edit timelines:</p>
+                        <div class="user-perm-checks">
+                            {% for tl in timelines %}
+                            <label class="user-perm-check-item">
+                                <input type="checkbox" name="timeline_ids" value="{{ tl.id }}"
+                                       {% if (user.id, tl.id) in perms or user.is_admin %}checked{% endif %}>
+                                {{ tl.title }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="user-perm-password">
+                        <label for="np_{{ user.id }}">Reset password <span style="color:#7a6e58;font-weight:400;">(leave blank to keep)</span></label>
+                        <input type="password" id="np_{{ user.id }}" name="new_password"
+                               autocomplete="new-password" placeholder="New password">
+                    </div>
+
+                    <button type="submit" class="btn btn-sm" style="margin-top:10px;">Save</button>
+                </form>
+
+                <!-- Delete form -->
+                {% if user.id != current_user.id %}
+                <form method="post"
+                      action="{{ url_for('admin_delete_user', user_id=user.id) }}"
+                      data-confirm="Delete user '{{ user.username }}'? This cannot be undone."
+                      style="margin-top:8px;">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete User</button>
+                </form>
+                {% endif %}
+            </div>
+        {% endfor %}
+        </div>
+        {% else %}
+            <p style="color:#7a6e58; font-style:italic;">No users yet.</p>
+        {% endif %}
+    </section>
+
+</div>
+{% endblock %}

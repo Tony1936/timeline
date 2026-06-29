@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block body_class %}timeline-view{% endblock %}
+
+{% block head_extra %}{% endblock %}
+
+{% block content %}
+
+<div class="timeline-page"
+     style="--hero-image: url('{{ timeline_image_url }}');">
+
+    <div class="timeline-hero">
+        <div class="hero-nav">
+            <a href="{{ url_for('home') }}" class="btn">&#8592; Home</a>
+            {% if can_edit %}
+                <a href="{{ url_for('manage_assets', timeline_id=timeline.id) }}" class="btn">Assets</a>
+                <a href="{{ url_for('manage_roles', timeline_id=timeline.id) }}" class="btn">Manage Roles</a>
+                <a href="{{ url_for('add_event', timeline_id=timeline.id) }}" class="btn">+ Add Event</a>
+            {% endif %}
+        </div>
+        <h1 class="hero-title">{{ timeline.title | upper }}</h1>
+        {% if timeline.description %}
+            <p class="hero-description">{{ timeline.description }}</p>
+        {% endif %}
+    </div>
+
+    {% if timeline.events|length == 0 %}
+        <div class="no-events">
+            <p>No events added yet.</p>
+            {% if can_edit %}
+            <a href="{{ url_for('add_event', timeline_id=timeline.id) }}" class="btn" style="margin-top:12px; display:inline-block;">+ Add First Event</a>
+            {% endif %}
+        </div>
+    {% else %}
+    <div class="timeline-wrapper">
+        <div id="timeline"></div>
+    </div>
+    {% endif %}
+
+</div>
+
+<div id="popupOverlay" class="popup-overlay"></div>
+<div id="eventPopup" class="popup"></div>
+
+<div id="mapOverlay" class="map-overlay" style="display:none;"></div>
+<div id="mapPopup" class="map-popup" style="display:none;" tabindex="-1">
+    <button type="button" class="map-close-btn" id="mapCloseBtn" aria-label="Close map">&times;</button>
+    <img id="mapImage" src="" class="map-popup-img" alt="Map">
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{% if items %}
+<script>
+(function () {
+    var container = document.getElementById('timeline');
+    if (!container) { return; }
+
+    // The timeline is full-screen — suppress the page scrollbar so the
+    // reserved gutter from html{overflow-y:scroll} doesn't show here.
+    document.documentElement.style.overflowY = 'hidden';
+
+    var CAN_EDIT   = {{ can_edit | tojson }};
+
+    var items = {{ items|tojson }};
+    var groups = {{ groups|tojson }};
+
+    var datasetItems = new vis.DataSet(items);
+
+    // Calculate height once, up-front, so Vis.js is created at the right
+    // size immediately — no post-creation resize that causes scrollbar flicker.
+    function calcLayout() {
+        var hero   = document.querySelector('.timeline-hero');
+        var heroH  = hero ? hero.offsetHeight : 130;
+        var totalH = Math.max(400, window.innerHeight - heroH);
+        var perG   = groups.length > 0
+                        ? Math.max(60, Math.floor((totalH - 50) / groups.length))
+                        : 80;
+        return { totalH: totalH, perG: perG };
+    }
+
+    var layout = calcLayout();
+
+    var initialGroups = groups.map(function (g) {
+        var colour = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
+        return { id: g.id, content: g.content, order: g.order, colour: g.colour,
+                 style: 'height:' + layout.perG + 'px;' + colour };
+    });
+    var datasetGroups = new vis.DataSet(initialGroups);
+
+    var options = {
+        stack: false,
+        zoomable: true,
+        moveable: true,
+        orientation: 'top',
+        selectable: true,
+        tooltip: { followMouse: false, overflowMethod: 'none' },
+        margin: { item: 20, axis: 10 },
+        groupHeightMode: 'fixed',
+        groupOrder: 'order',
+        height: layout.totalH + 'px',
+        zoomMin: 1000 * 60 * 60 * 24,
+        zoomMax: 1000 * 60 * 60 * 24 * 365 * 500,
+        showCurrentTime: false,
+        snap: function (date) {
+            date.setHours(0, 0, 0, 0);
+            return date;
+        },
+        format: {
+            minorLabels: { day: 'D MMM YYYY', month: 'MMM YYYY', year: 'YYYY' },
+            majorLabels: { day: 'MMMM YYYY', month: 'YYYY', year: '' }
+        }
+    };
+
+    var timeline = new vis.Timeline(container, datasetItems, options);
+    timeline.setGroups(datasetGroups);
+    timeline.fit();
+
+    /* ── Range-event connector lines ─────────────────────────── */
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:hidden;';
+    container.style.position = 'relative';
+
+    var defs      = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    var clipPath  = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+    clipPath.id   = 'vis-center-clip';
+    var clipRect  = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    clipPath.appendChild(clipRect);
+    defs.appendChild(clipPath);
+    svg.appendChild(defs);
+
+    var linesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    linesGroup.setAttribute('clip-path', 'url(#vis-center-clip)');
+    svg.appendChild(linesGroup);
+    container.appendChild(svg);
+
+    function drawRangeLines() {
+        linesGroup.innerHTML = '';
+        var centerPanel = container.querySelector('.vis-panel.vis-center');
+        if (!centerPanel) return;
+
+        var cRect    = container.getBoundingClientRect();
+        var pRect    = centerPanel.getBoundingClientRect();
+
+        clipRect.setAttribute('x',      pRect.left - cRect.left);
+        clipRect.setAttribute('y',      pRect.top  - cRect.top);
+        clipRect.setAttribute('width',  pRect.width);
+        clipRect.setAttribute('height', pRect.height);
+
+        var axisY = pRect.top - cRect.top;
+
+        container.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
+            var r = item.getBoundingClientRect();
+            if (r.width < 4) return;
+
+            var x1   = r.left  - cRect.left;
+            var x2   = r.right - cRect.left;
+            var itemY = r.top  - cRect.top;
+
+            [x1, x2].forEach(function (x) {
+                var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x);
+                line.setAttribute('y1', axisY);
+                line.setAttribute('x2', x);
+                line.setAttribute('y2', itemY);
+                line.setAttribute('stroke',           'rgba(200,168,100,0.55)');
+                line.setAttribute('stroke-width',     '1.5');
+                line.setAttribute('stroke-dasharray', '4,3');
+                linesGroup.appendChild(line);
+            });
+        });
+    }
+
+    timeline.on('changed', drawRangeLines);
+
+    function distributeGroups() {
+        var l = calcLayout();
+        timeline.setOptions({ height: l.totalH + 'px' });
+        var updated = groups.map(function (g) {
+            var colour = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
+            return { id: g.id, style: 'height:' + l.perG + 'px;' + colour };
+        });
+        datasetGroups.update(updated);
+    }
+
+    window.addEventListener('resize', distributeGroups);
+
+    document.addEventListener('keydown', function (e) {
+        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+        var w = timeline.getWindow();
+        var span = w.end - w.start;
+        var pan = span * 0.2;
+        var opts = { animation: { duration: 180, easingFunction: 'easeInOutQuad' } };
+        if (e.key === 'ArrowLeft') {
+            timeline.setWindow(new Date(w.start - pan), new Date(w.end - pan), opts);
+            e.preventDefault();
+        } else if (e.key === 'ArrowRight') {
+            timeline.setWindow(new Date(w.start + pan), new Date(w.end + pan), opts);
+            e.preventDefault();
+        } else if (e.key === '+' || e.key === '=') {
+            var z = span * 0.2;
+            timeline.setWindow(new Date(w.start + z), new Date(w.end - z), opts);
+            e.preventDefault();
+        } else if (e.key === '-') {
+            var z = span * 0.4;
+            timeline.setWindow(new Date(w.start - z), new Date(w.end + z), opts);
+            e.preventDefault();
+        } else if (e.key === 'Escape') {
+            closeMapPopup();
+        }
+    });
+
+    container.addEventListener('mouseenter', function () {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+    });
+    container.addEventListener('mouseleave', function () {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+    });
+
+    container.addEventListener('wheel', function (e) {
+        e.preventDefault();
+    }, { passive: false, capture: true });
+
+    function formatDate(dateString) {
+        if (!dateString) return "";
+        return new Date(dateString).toDateString();
+    }
+
+    timeline.on('select', function (properties) {
+        if (!properties.items.length) return;
+
+        var ev = timeline.itemsData.get(properties.items[0]);
+        if (!ev) {
+            document.getElementById("eventPopup").innerHTML =
+                "<div class='popup-inner'><h3>Event not found</h3></div>";
+        } else {
+            var html = "<div class='popup-inner'>";
+
+            var imgMatch = ev.content ? ev.content.match(/<img[^>]*src='([^']*)'[^>]*>/) : null;
+            if (imgMatch) {
+                html += "<img src='" + imgMatch[1] + "' class='popup-img'>";
+            }
+
+            var heading = ev.content ? ev.content.replace(/<img[^>]*>/g, '').trim() : "Event";
+            html += "<h3>" + heading + "</h3>";
+
+            if (ev.start) {
+                html += "<p class='popup-date'>&#128197; " + formatDate(ev.start);
+                if (ev.end) { html += " &ndash; " + formatDate(ev.end); }
+                html += "</p>";
+            }
+
+            if (ev.description) {
+                html += "<p class='popup-desc'>" + ev.description.replace(/\n/g, "<br>") + "</p>";
+            }
+
+            html += "<div class='popup-actions'>";
+            if (ev.maps_id) {
+                html += "<button type='button' class='btn btn-inline btn-map' onclick='openMapPopup(\"/map/" + ev.maps_id + "\")'>Display Map</button>";
+            }
+            if (CAN_EDIT) {
+                html += "<a href='/event/" + ev.id + "/edit' class='btn btn-inline'>Edit Event</a>";
+                html += "<form method='post' action='/event/" + ev.id + "/delete' style='display:inline;' data-confirm='Delete this event? This cannot be undone.'>";
+                html += "<button type='submit' class='btn btn-inline btn-danger'>Delete</button>";
+                html += "</form>";
+            }
+            html += "</div>";
+            html += "</div>";
+
+            document.getElementById("eventPopup").innerHTML = html;
+        }
+
+        document.getElementById("eventPopup").style.display = "block";
+        document.getElementById("popupOverlay").style.display = "block";
+    });
+
+    document.getElementById("popupOverlay").onclick = function () {
+        document.getElementById("eventPopup").style.display = "none";
+        document.getElementById("popupOverlay").style.display = "none";
+    };
+
+    /* ── Map popup ─────────────────────────────────────────── */
+    window.openMapPopup = function (src) {
+        var mapImg = document.getElementById("mapImage");
+        var mapPop = document.getElementById("mapPopup");
+        var mapOvl = document.getElementById("mapOverlay");
+        mapImg.src = src;
+        mapOvl.style.display = "block";
+        mapPop.style.display = "block";
+        mapPop.focus();
+    };
+
+    function closeMapPopup() {
+        document.getElementById("mapOverlay").style.display = "none";
+        document.getElementById("mapPopup").style.display  = "none";
+    }
+
+    document.getElementById("mapOverlay").addEventListener("click", closeMapPopup);
+    document.getElementById("mapCloseBtn").addEventListener("click", closeMapPopup);
+    document.getElementById("mapPopup").addEventListener("blur", function () {
+        setTimeout(closeMapPopup, 150);
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

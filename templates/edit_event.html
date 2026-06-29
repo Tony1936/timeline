@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Event{% endblock %}
+
+{% block content %}
+<h2>Edit Event in {{ timeline.title }}</h2>
+
+<form method="post" action="{{ url_for('edit_event', event_id=event.id) }}">
+
+    <div class="event-form-layout">
+
+        <div class="event-form-fields">
+
+            <label>Title<br>
+                <input type="text" name="title" value="{{ event.title }}" required style="width:100%;">
+            </label><br><br>
+
+            <label>Start Date (DD-MM-YYYY, MM-YYYY, or YYYY)<br>
+                <input type="text" name="start_text" value="{{ event.start_text }}" autocomplete="off" inputmode="text" pattern=".*" required style="width:100%;">
+            </label><br><br>
+
+            <label>End Date (optional)<br>
+                <input type="text" name="end_text" value="{{ event.end_text or '' }}" autocomplete="off" inputmode="text" pattern=".*" style="width:100%;">
+            </label><br><br>
+
+            <label>Role<br>
+                <select name="role_id" required style="width:100%;">
+                    {% for r in timeline.roles %}
+                        <option value="{{ r.id }}" {% if event.role_id == r.id %}selected{% endif %}>
+                            {{ r.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label><br><br>
+
+            <label>Event Image
+                <span class="assets-link-hint">
+                    — <a href="{{ url_for('manage_assets', timeline_id=timeline.id) }}">Manage Images</a>
+                </span><br>
+                <select name="event_image_id" id="event_image_select" style="width:100%;">
+                    <option value="">(No image)</option>
+                    {% for img in images %}
+                        <option value="{{ img.id }}" {% if event.event_image_id == img.id %}selected{% endif %}>
+                            {{ img.filename }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label><br><br>
+
+            <img id="image_preview"
+                 src="{% if event.event_image_id %}/image/{{ event.event_image_id }}{% endif %}"
+                 style="max-width:100%; max-height:140px; object-fit:contain; border-radius:4px; {% if not event.event_image_id %}display:none;{% endif %}">
+
+            <br><br>
+
+            <label>Map
+                <span class="assets-link-hint">
+                    — <a href="{{ url_for('manage_assets', timeline_id=timeline.id) }}">Manage Maps</a>
+                </span><br>
+                <select name="map_asset_id" id="map_select" style="width:100%;">
+                    <option value="">(No map)</option>
+                    {% for m in maps %}
+                        <option value="{{ m.id }}" {% if event.map_asset_id == m.id %}selected{% endif %}>{{ m.filename }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+        </div>
+
+        <div class="event-form-description">
+            <label>Description<br>
+                <textarea name="description" class="desc-textarea">{{ event.description or '' }}</textarea>
+            </label>
+
+            <div id="map_preview_wrap" class="map-form-preview" style="{% if not event.map_asset_id %}display:none;{% endif %}">
+                <p class="map-preview-label">Map Preview</p>
+                <img id="map_preview"
+                     src="{% if event.map_asset_id %}/map/{{ event.map_asset_id }}{% endif %}"
+                     class="map-preview-img">
+            </div>
+        </div>
+
+    </div>
+
+    <br>
+    <button type="submit">Save Changes</button>
+
+</form>
+
+<br>
+<form method="post" action="{{ url_for('delete_event', event_id=event.id) }}"
+      data-confirm="Delete this event? This cannot be undone."
+      style="display:inline;">
+    <button type="submit" style="background:#7a1a10; color:#f0c8b8; border:1px solid rgba(200,80,60,0.4); padding:8px 18px; border-radius:4px; cursor:pointer;">
+        Delete Event
+    </button>
+</form>
+
+<p><a href="{{ url_for('view_timeline', timeline_id=timeline.id) }}">Back to Timeline</a></p>
+
+<script>
+(function () {
+    document.getElementById("event_image_select").addEventListener("change", function () {
+        var id = this.value;
+        var preview = document.getElementById("image_preview");
+        if (id) { preview.src = "/image/" + id; preview.style.display = "block"; }
+        else     { preview.style.display = "none"; }
+    });
+
+    document.getElementById("map_select").addEventListener("change", function () {
+        var id = this.value;
+        var wrap = document.getElementById("map_preview_wrap");
+        var preview = document.getElementById("map_preview");
+        if (id) { preview.src = "/map/" + id; wrap.style.display = "block"; }
+        else    { wrap.style.display = "none"; }
+    });
+}());
+</script>
+
+{% endblock %}

@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "kxMNtRoomHtu-0bXWT2Ts"
+uri = "file://screenshots/tl-current.jpg"
+type = "image"
+title = "Current — uppercase labels · dark charcoal · serif"
+
+[[outputs]]
+id = "BA7y851ncith3zZiMlSWz"
+uri = "file://screenshots/tl-warm.jpg"
+type = "image"
+title = "Warm & Bright — mixed-case · navy base · crisper gold"
+
+[[outputs]]
+id = "fVJDkxYa0NKuhktmwDD6p"
+uri = "file://screenshots/tl-sans.jpg"
+type = "image"
+title = "Sans-serif — mixed-case · Inter font · slate base"
