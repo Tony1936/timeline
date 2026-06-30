@@ -411,6 +411,10 @@ def admin_db_restore():
             if os.path.exists(sidecar):
                 os.remove(sidecar)
 
+        # Recreate any tables the backup may be missing (e.g. tables added
+        # after the backup was made).  Mirrors what startup does.
+        db.create_all()
+
         flash("Database restored successfully. The app is reloading.", "success")
         # Signal Gunicorn master to gracefully recycle all workers so every
         # worker opens fresh connections to the new database file.
