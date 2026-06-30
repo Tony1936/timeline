@@ -37,6 +37,7 @@
                         </label>
                     </form>
                 {% endif %}
+                <a href="{{ url_for('change_password') }}" class="btn btn-sm">Change Password</a>
                 <form method="post" action="{{ url_for('logout') }}" style="display:inline;">
                     <button type="submit" class="btn btn-sm">Logout</button>
                 </form>
