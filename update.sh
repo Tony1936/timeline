@@ -71,7 +71,11 @@ else
 
     # Restore the live db immediately after — never let the committed dev
     # copy replace production data.
-    [[ -f "$DB_BACKUP" ]] && mv "$DB_BACKUP" "$DB_FILE"
+    if [[ -f "$DB_BACKUP" ]]; then
+        mv "$DB_BACKUP" "$DB_FILE"
+        chown "$APP_USER:$APP_USER" "$DB_FILE"
+        chmod 664 "$DB_FILE"
+    fi
 
     # Restore image/map folders so migrate_db.py can ingest them.
     for _dir in static/timeline_images static/images static/timeline_maps; do
@@ -94,6 +98,13 @@ info "Dependencies up to date."
 # The static/timeline_images and static/timeline_maps folders are legacy
 # and only needed if running migrate_db.py to ingest old on-disk files.
 sudo -u "$APP_USER" mkdir -p "$INSTALL_DIR/instance"
+
+# ── ensure db file is writable by the app user ───────────────────────────────
+DB_FILE="$INSTALL_DIR/instance/sqlite3.db"
+if [[ -f "$DB_FILE" ]]; then
+    chown "$APP_USER:$APP_USER" "$DB_FILE"
+    chmod 664 "$DB_FILE"
+fi
 
 # ── apply database migrations ─────────────────────────────────────────────────
 info "Running database migration..."
