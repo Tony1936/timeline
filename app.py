@@ -396,6 +396,7 @@ def admin_db_restore():
         if os.path.exists(db_path):
             shutil.copy2(db_path, db_backup)
         f.save(db_path)
+        db.engine.dispose()
         flash("Database restored successfully. The app will reload.", "success")
         def _reload():
             import time
