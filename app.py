@@ -22,6 +22,26 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 
 db.init_app(app)
 
+
+def _apply_schema_migrations():
+    """Create missing tables and add any missing columns. Safe to run repeatedly."""
+    db.create_all()
+    _new_columns = [
+        ("events",    "maps_id",        "VARCHAR(300) DEFAULT NULL"),
+        ("events",    "event_image_id", "INTEGER DEFAULT NULL"),
+        ("events",    "map_asset_id",   "INTEGER DEFAULT NULL"),
+        ("timelines", "image_id",       "INTEGER DEFAULT NULL"),
+        ("events",    "link_url",       "VARCHAR(500) DEFAULT NULL"),
+    ]
+    with db.engine.connect() as conn:
+        for tbl, col, ddl in _new_columns:
+            try:
+                conn.execute(db.text(f"ALTER TABLE {tbl} ADD COLUMN {col} {ddl}"))
+                conn.commit()
+            except Exception:
+                pass
+
+
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif"}
 
 _MIME_MAP = {
@@ -411,9 +431,9 @@ def admin_db_restore():
             if os.path.exists(sidecar):
                 os.remove(sidecar)
 
-        # Recreate any tables the backup may be missing (e.g. tables added
-        # after the backup was made).  Mirrors what startup does.
-        db.create_all()
+        # Bring the restored DB fully up to date — create missing tables
+        # and add any missing columns (e.g. link_url added after backup).
+        _apply_schema_migrations()
 
         flash("Database restored successfully. The app is reloading.", "success")
         # Signal Gunicorn master to gracefully recycle all workers so every
@@ -920,22 +940,6 @@ def delete_role(timeline_id, role_id):
 
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()
-
-        # Incremental column migrations — safe to run repeatedly
-        _new_columns = [
-            ("events",    "maps_id",        "VARCHAR(300) DEFAULT NULL"),
-            ("events",    "event_image_id", "INTEGER DEFAULT NULL"),
-            ("events",    "map_asset_id",   "INTEGER DEFAULT NULL"),
-            ("timelines", "image_id",       "INTEGER DEFAULT NULL"),
-            ("events",    "link_url",       "VARCHAR(500) DEFAULT NULL"),
-        ]
-        with db.engine.connect() as conn:
-            for tbl, col, ddl in _new_columns:
-                try:
-                    conn.execute(db.text(f"ALTER TABLE {tbl} ADD COLUMN {col} {ddl}"))
-                    conn.commit()
-                except Exception:
-                    pass
+        _apply_schema_migrations()
 
     app.run(host="0.0.0.0", port=5000, debug=True)
