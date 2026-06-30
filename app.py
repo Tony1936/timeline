@@ -395,18 +395,25 @@ def admin_db_restore():
     try:
         if os.path.exists(db_path):
             shutil.copy2(db_path, db_backup)
-        f.save(db_path)
+
+        # Close active session + all pooled connections BEFORE writing the new
+        # file so no handle is open on the old database during the overwrite.
+        db.session.remove()
         db.engine.dispose()
-        flash("Database restored successfully. The app will reload.", "success")
-        def _reload():
-            import time
-            time.sleep(1)
-            try:
-                os.kill(os.getppid(), signal.SIGHUP)
-            except Exception:
-                pass
-        threading.Thread(target=_reload, daemon=True).start()
+
+        f.save(db_path)
+
+        # Remove stale WAL / shared-memory sidecar files left by the old DB.
+        # If these are left in place SQLite will try to apply the old WAL to
+        # the new database, which causes immediate corruption or errors.
+        for ext in ("-wal", "-shm"):
+            sidecar = db_path + ext
+            if os.path.exists(sidecar):
+                os.remove(sidecar)
+
+        flash("Database restored successfully.", "success")
     except Exception as exc:
+        db.engine.dispose()
         if os.path.exists(db_backup):
             shutil.copy2(db_backup, db_path)
         flash(f"Restore failed: {exc}", "error")
