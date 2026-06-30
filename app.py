@@ -316,7 +316,7 @@ def admin_update():
 
     steps = [
         ("Pulling latest code",
-         ["git", "-C", app_dir, "pull", "--ff-only", "origin", "main"],
+         ["git", "-C", app_dir, "pull", "--ff-only", "origin", "master"],
          ssh_env),
         ("Updating dependencies",
          [pip_cmd, "install", "-r", os.path.join(app_dir, "requirements.txt"), "-q"],
