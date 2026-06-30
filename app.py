@@ -411,7 +411,18 @@ def admin_db_restore():
             if os.path.exists(sidecar):
                 os.remove(sidecar)
 
-        flash("Database restored successfully.", "success")
+        flash("Database restored successfully. The app is reloading.", "success")
+        # Signal Gunicorn master to gracefully recycle all workers so every
+        # worker opens fresh connections to the new database file.
+        # On the Flask dev server this is a no-op (SIGHUP is ignored/harmless).
+        def _reload():
+            import time
+            time.sleep(1)
+            try:
+                os.kill(os.getppid(), signal.SIGHUP)
+            except Exception:
+                pass
+        threading.Thread(target=_reload, daemon=True).start()
     except Exception as exc:
         db.engine.dispose()
         if os.path.exists(db_backup):
