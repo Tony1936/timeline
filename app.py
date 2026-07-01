@@ -142,7 +142,7 @@ def serve_image(image_id):
     ct  = img.mimetype if img.mimetype in _SAFE_IMAGE_MIMES else "application/octet-stream"
     resp = make_response(img.data)
     resp.headers["Content-Type"]           = ct
-    resp.headers["Cache-Control"]          = "public, max-age=31536000, immutable"
+    resp.headers["Cache-Control"]          = "private, no-cache"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     return resp
 
@@ -153,7 +153,7 @@ def serve_map(map_id):
     ct = m.mimetype if m.mimetype in _SAFE_IMAGE_MIMES else "application/octet-stream"
     resp = make_response(m.data)
     resp.headers["Content-Type"]           = ct
-    resp.headers["Cache-Control"]          = "public, max-age=31536000, immutable"
+    resp.headers["Cache-Control"]          = "private, no-cache"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     return resp
 
