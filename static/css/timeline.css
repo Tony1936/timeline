@@ -243,7 +243,7 @@ html, body.timeline-view {
     display: inline-block;
     padding: 7px 14px;
     background: rgba(20, 14, 6, 0.75);
-    color: #d4bc82;
+    color: #fff4a9;
     text-decoration: none;
     border-radius: 4px;
     font-size: 0.85rem;
@@ -255,7 +255,7 @@ html, body.timeline-view {
 .btn:hover {
     background: rgba(40, 30, 10, 0.9);
     border-color: rgba(200, 168, 75, 0.7);
-    color: #f0d890;
+    color: #ffffbb;
 }
 
 .btn-inline {
@@ -270,13 +270,13 @@ html, body.timeline-view {
 
 .btn-danger {
     border-color: rgba(160, 50, 40, 0.6);
-    color: #e07060;
+    color: #ff917c;
 }
 
 .btn-danger:hover {
     background: rgba(80, 20, 10, 0.9);
     border-color: rgba(200, 70, 55, 0.8);
-    color: #f0a090;
+    color: #ffd0bb;
 }
 
 .btn-update {
@@ -342,12 +342,12 @@ html, body.timeline-view {
 .timeline-list-link {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #e0c070;
+    color: #fff991;
     text-decoration: none;
 }
 
 .timeline-list-link:hover {
-    color: #fde68a;
+    color: #ffffb3;
     text-decoration: underline;
 }
 
@@ -360,22 +360,22 @@ html, body.timeline-view {
 
 .timeline-date-range {
     font-size: 0.82rem;
-    color: #c8a864;
+    color: #ffda82;
     font-style: italic;
 }
 
 .timeline-event-count {
     font-size: 0.78rem;
-    background: rgba(200, 168, 75, 0.22);
-    border: 1px solid rgba(200, 168, 75, 0.5);
-    color: #c8a864;
+    background: rgba(200, 168, 75, 0.3);
+    border: 1px solid rgba(200, 168, 75, 0.65);
+    color: #ffda82;
     padding: 1px 7px;
     border-radius: 10px;
 }
 
 .timeline-list-desc {
     font-size: 0.9rem;
-    color: #c4b490;
+    color: #feeabb;
     margin-top: 4px;
 }
 
@@ -713,7 +713,7 @@ html, body.timeline-view {
 .site-title {
     margin: 0;
     font-size: 1.4rem;
-    color: #c8a864;
+    color: #ffda82;
     font-weight: 700;
     letter-spacing: 0.03em;
 }
@@ -727,7 +727,7 @@ html, body.timeline-view {
 
 .auth-username {
     font-size: 0.85rem;
-    color: #a09060;
+    color: #d0bb7c;
 }
 
 .auth-admin-badge {
@@ -1119,7 +1119,7 @@ a:hover {
 .home-login-hint {
     margin-top: 28px;
     font-size: 0.88rem;
-    color: #b0a080;
+    color: #e4d0a6;
 }
 
 /* ====================================================
