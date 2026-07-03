@@ -455,7 +455,7 @@ html, body.timeline-view {
 /* Group label text */
 .vis-label {
     color: #fde68a !important;
-    font-size: 0.78rem !important;
+    font-size: 1.17rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.01em !important;
     padding: 0 10px !important;
@@ -559,6 +559,16 @@ html, body.timeline-view {
 
 .vis-item.vis-dot {
     border-color: #fbbf24 !important;
+    border-width: 6px !important;
+    box-shadow: 0 0 8px rgba(251, 191, 36, 0.7) !important;
+}
+
+/* Connector line from event box down to the timeline axis */
+.vis-item.vis-line {
+    border-left-width: 1.5px !important;
+    border-left-color: #fbbf24 !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 4px rgba(251, 191, 36, 0.5) !important;
 }
 
 /* Range items */
