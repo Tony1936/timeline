@@ -231,8 +231,11 @@ html, body.timeline-view {
 .popup-actions {
     display: flex;
     gap: 10px;
-    margin-top: 4px;
     flex-wrap: wrap;
+    flex-shrink: 0;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(250, 180, 50, 0.25);
+    background: rgba(17, 24, 39, 0.97);
 }
 
 /* ====================================================
@@ -259,7 +262,6 @@ html, body.timeline-view {
 }
 
 .btn-inline {
-    margin-top: 12px;
     display: inline-block;
 }
 
@@ -606,14 +608,18 @@ html, body.timeline-view {
     width: 90%;
     max-height: 85vh;
     display: none;
+    flex-direction: column;
     z-index: 2001;
     color: #f1f5f9;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
 }
 
 .popup-inner {
     padding: 24px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .popup-inner h3 {

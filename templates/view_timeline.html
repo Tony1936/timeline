@@ -362,7 +362,9 @@
                 html += "</div>";
             }
 
-            /* Actions */
+            html += "</div>";
+
+            /* Actions — kept outside the scrollable area so they stay visible */
             html += "<div class='popup-actions'>";
             if (ev.link_url) {
                 html += "<a href='" + ev.link_url + "' target='_blank' rel='noopener' class='btn btn-inline'>Read more &#8599;</a>";
@@ -377,12 +379,11 @@
                 html += "</form>";
             }
             html += "</div>";
-            html += "</div>";
 
             document.getElementById('eventPopup').innerHTML = html;
         }
 
-        document.getElementById('eventPopup').style.display   = 'block';
+        document.getElementById('eventPopup').style.display   = 'flex';
         document.getElementById('popupOverlay').style.display = 'block';
     });
 
