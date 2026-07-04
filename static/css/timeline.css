@@ -648,7 +648,7 @@ html, body.timeline-view {
 
 .gallery-img {
     width: 100%;
-    max-height: 220px;
+    max-height: 330px;
     object-fit: contain;
     display: block;
 }
@@ -686,14 +686,14 @@ html, body.timeline-view {
     font-size: 20px;
     color: #c8bca0;
     line-height: 1.6;
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
 }
 
 .popup-img {
     width: 45% !important;
     max-width: 320px !important;
-    max-height: 320px !important;
+    max-height: 480px !important;
     object-fit: contain !important;
     object-position: center top !important;
     border-radius: 4px !important;
