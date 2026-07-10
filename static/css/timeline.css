@@ -44,7 +44,7 @@ html, body.timeline-view {
     background-image: var(--hero-image);
     background-size: cover;
     background-position: center top;
-    background-attachment: fixed;
+    background-attachment: scroll;
     display: flex;
     flex-direction: column;
 }
@@ -452,6 +452,7 @@ html, body.timeline-view {
     background: transparent !important;
     border: none !important;
 }
+
 
 .btn-axis-above {
     border-color: rgba(251, 191, 36, 0.75);

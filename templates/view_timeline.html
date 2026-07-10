@@ -152,7 +152,9 @@
         aboveEl.style.display = 'block';
         var optsA = Object.assign({}, commonOpts, {
             orientation: 'bottom',
-            height: layout.aboveH + 'px'
+            height: layout.aboveH + 'px',
+            showMinorLabels: false,
+            showMajorLabels: false
         });
         timelineAbove = new vis.Timeline(aboveEl, dsItemsAbove, optsA);
         timelineAbove.setGroups(dsGroupsAbove);
@@ -206,85 +208,80 @@
     }
 
     /* ── Range-event connector lines ──────────────────────────── */
-    /* SVG lives inside .timeline-wrapper (position:absolute,       */
-    /* z-index:9999). isolation:isolate on the wrapper creates a    */
-    /* clean stacking context so z-9999 beats vis.js's max z-10,   */
-    /* with no backdrop-filter compositor interference.             */
+    /* Body-fixed SVG at z-index:2147483647 — above every vis.js   */
+    /* stacking context. Dashed lines run from each range-event     */
+    /* edge down/up to axisY with an amber dot at the axis.         */
     function setupRangeLines() {
         var wrapEl = document.querySelector('.timeline-wrapper');
         if (!wrapEl) { return; }
 
+        /* SVG layer for dashed in-panel lines and axis dots (body-fixed) */
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:visible;';
-        /* glow filter so lines stand out on any background */
-        var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        defs.innerHTML = '<filter id="rl-glow" x="-50%" y="-50%" width="200%" height="200%">'
-            + '<feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>'
-            + '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>'
-            + '</filter>';
-        svg.appendChild(defs);
+        svg.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;'
+            + 'pointer-events:none;z-index:2147483647;overflow:visible;';
         var lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        lg.setAttribute('filter', 'url(#rl-glow)');
         svg.appendChild(lg);
-        wrapEl.appendChild(svg);
+        document.body.appendChild(svg);
 
         function redraw() {
             lg.innerHTML = '';
-            var wR = wrapEl.getBoundingClientRect();
 
-            /* Find axisY in wrapper-relative coordinates.
-               Use the FOREGROUND time-axis bottom — that is where the
-               border-bottom amber line lives.  The background time-axis
-               sibling has height:100% of the panel so its bottom ≠ axis.
-               Fallback chain: foreground → top-panel bottom → center top. */
+            /* axisY — viewport Y of the amber border-bottom on the foreground
+               vis-time-axis. In vis.js 7.7.0 the below top-panel may have one
+               OR two .vis-time-axis elements; pick whichever one is shorter than
+               95% of the panel — its border-bottom IS the visible amber line. */
             var axisY = null;
             if (timelineBelow && belowEl.style.display !== 'none') {
-                var fga = belowEl.querySelector('.vis-panel.vis-top .vis-time-axis.vis-foreground');
-                if (fga) {
-                    axisY = fga.getBoundingClientRect().bottom - wR.top;
-                } else {
-                    var tp = belowEl.querySelector('.vis-panel.vis-top');
-                    if (tp) { axisY = tp.getBoundingClientRect().bottom - wR.top; }
+                var topPanel = belowEl.querySelector('.vis-panel.vis-top');
+                if (topPanel) {
+                    var panelH  = topPanel.getBoundingClientRect().height;
+                    var taEls = Array.prototype.slice.call(
+                        topPanel.querySelectorAll('.vis-time-axis'));
+                    var sorted = taEls.slice().sort(function(a, b) {
+                        return a.getBoundingClientRect().height -
+                               b.getBoundingClientRect().height;
+                    });
+                    /* Use the shortest vis-time-axis if it is clearly shorter
+                       than the full panel (= it is the foreground/label element). */
+                    if (sorted.length > 0) {
+                        var shortest = sorted[0];
+                        if (shortest.getBoundingClientRect().height < panelH * 0.95) {
+                            axisY = shortest.getBoundingClientRect().bottom;
+                        }
+                    }
+                    if (axisY === null) {
+                        axisY = topPanel.getBoundingClientRect().bottom;
+                    }
                 }
                 if (axisY === null) {
                     var bc = belowEl.querySelector('.vis-panel.vis-center');
-                    if (bc) { axisY = bc.getBoundingClientRect().top - wR.top; }
+                    if (bc) { axisY = bc.getBoundingClientRect().top; }
                 }
             }
             if (axisY === null && timelineAbove && aboveEl.style.display !== 'none') {
-                var fgb = aboveEl.querySelector('.vis-panel.vis-bottom .vis-time-axis.vis-foreground');
-                if (fgb) {
-                    axisY = fgb.getBoundingClientRect().top - wR.top;
-                } else {
-                    var ac = aboveEl.querySelector('.vis-panel.vis-center');
-                    if (ac) { axisY = ac.getBoundingClientRect().bottom - wR.top; }
-                }
+                var ac = aboveEl.querySelector('.vis-panel.vis-center');
+                if (ac) { axisY = ac.getBoundingClientRect().bottom; }
             }
             if (axisY === null) { return; }
 
-            /* ── Draw dark-fill over gap area to make lines visible ──
-               Start at the bottom of the above CENTER PANEL (not the
-               container bottom) so the above axis-bar area is also
-               filled — this eliminates the "imaginary role gap" the
-               user sees as a blank strip between the two sections. */
-            var gapTop = axisY;
-            if (timelineAbove && aboveEl.style.display !== 'none') {
-                var aboveCenter = aboveEl.querySelector('.vis-panel.vis-center');
-                if (aboveCenter) {
-                    gapTop = aboveCenter.getBoundingClientRect().bottom - wR.top;
-                } else {
-                    gapTop = aboveEl.getBoundingClientRect().bottom - wR.top;
-                }
+            function makeLine(x1, y1, x2, y2, stroke, sw, dash) {
+                var el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                el.setAttribute('x1', x1); el.setAttribute('y1', y1);
+                el.setAttribute('x2', x2); el.setAttribute('y2', y2);
+                el.setAttribute('stroke', stroke);
+                el.setAttribute('stroke-width', sw);
+                if (dash) { el.setAttribute('stroke-dasharray', dash); }
+                return el;
             }
-            if (gapTop < axisY) {
-                var gapFill = document.createElementNS('http://www.w3.org/2000/svg','rect');
-                gapFill.setAttribute('x','0');
-                gapFill.setAttribute('y', String(gapTop));
-                gapFill.setAttribute('width', String(wrapEl.offsetWidth));
-                gapFill.setAttribute('height', String(axisY - gapTop));
-                gapFill.setAttribute('fill','rgba(10,14,20,0.72)');
-                gapFill.setAttribute('pointer-events','none');
-                lg.appendChild(gapFill);
+            function makeDot(x, y, r, fill, strokeCol, strokeW) {
+                var el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                el.setAttribute('cx', x); el.setAttribute('cy', y); el.setAttribute('r', r);
+                el.setAttribute('fill', fill);
+                if (strokeCol) {
+                    el.setAttribute('stroke', strokeCol);
+                    el.setAttribute('stroke-width', strokeW);
+                }
+                return el;
             }
 
             function drawFor(el, axisAtBottom) {
@@ -292,29 +289,18 @@
                 el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
                     var r = item.getBoundingClientRect();
                     if (r.width < 4) { return; }
-                    var x1    = r.left  - wR.left;
-                    var x2    = r.right - wR.left;
-                    var itemY = axisAtBottom ? (r.bottom - wR.top) : (r.top - wR.top);
-                    [x1, x2].forEach(function (x) {
-                        var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        line.setAttribute('x1', x);  line.setAttribute('y1', itemY);
-                        line.setAttribute('x2', x);  line.setAttribute('y2', axisY);
-                        line.setAttribute('stroke',           'rgba(251,191,36,1.0)');
-                        line.setAttribute('stroke-width',     '3');
-                        line.setAttribute('stroke-dasharray', '5,3');
-                        lg.appendChild(line);
-                        var glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        glow.setAttribute('cx', x);  glow.setAttribute('cy', axisY);
-                        glow.setAttribute('r',  '10');
-                        glow.setAttribute('fill', 'rgba(251,191,36,0.22)');
-                        lg.appendChild(glow);
-                        var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        dot.setAttribute('cx', x);  dot.setAttribute('cy', axisY);
-                        dot.setAttribute('r',  '6');
-                        dot.setAttribute('fill',         '#fbbf24');
-                        dot.setAttribute('stroke',       'rgba(18,12,4,0.7)');
-                        dot.setAttribute('stroke-width', '1.5');
-                        lg.appendChild(dot);
+                    var itemY = axisAtBottom ? r.bottom : r.top;
+                    [r.left, r.right].forEach(function (x) {
+                        /* single dashed line from event edge to axis */
+                        lg.appendChild(makeLine(x, itemY, x, axisY,
+                            'rgba(0,0,0,0.85)', 6, '6,4'));
+                        lg.appendChild(makeLine(x, itemY, x, axisY,
+                            'rgba(251,191,36,1)', 3, '6,4'));
+                        /* glow + dot at axis */
+                        lg.appendChild(makeDot(x, axisY, 10,
+                            'rgba(251,191,36,0.22)', null, null));
+                        lg.appendChild(makeDot(x, axisY, 6,
+                            '#fbbf24', 'rgba(18,12,4,0.7)', 1.5));
                     });
                 });
             }
@@ -326,6 +312,7 @@
         if (timelineAbove) { timelineAbove.on('changed', redraw); }
         if (timelineBelow) { timelineBelow.on('changed', redraw); }
         window.addEventListener('resize', redraw);
+        window.addEventListener('scroll', redraw, { passive: true });
     }
     setupRangeLines();
 

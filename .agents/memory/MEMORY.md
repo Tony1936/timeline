@@ -1,2 +1,1 @@
-- [Pending feature: range-event date lines](range-event-lines.md) — draw connector lines from both start AND end of an event box down to the timeline axis
-- [Bilateral timeline SVG overlay](bilateral-svg-overlay.md) — how to correctly draw cross-container range connector lines
+- [Bilateral timeline SVG overlay](bilateral-svg-overlay.md) — body-fixed SVG at z-index:2147483647 draws range connector lines; gap portion invisible in Replit screenshots (real browsers work fine)
