@@ -229,23 +229,11 @@
             var cR = el.getBoundingClientRect();
             var pR = cp.getBoundingClientRect();
 
-            var axisY;
-            if (axisAtBottom) {
-                var botPanel = el.querySelector('.vis-panel.vis-bottom');
-                axisY = botPanel
-                    ? (botPanel.getBoundingClientRect().bottom - cR.top)
-                    : (pR.bottom - cR.top);
-                clipRect.setAttribute('x',      pR.left - cR.left);
-                clipRect.setAttribute('y',      pR.top  - cR.top);
-                clipRect.setAttribute('width',  pR.width);
-                clipRect.setAttribute('height', axisY - (pR.top - cR.top) + 3);
-            } else {
-                axisY = pR.top - cR.top;
-                clipRect.setAttribute('x',      pR.left - cR.left);
-                clipRect.setAttribute('y',      axisY - 6);
-                clipRect.setAttribute('width',  pR.width);
-                clipRect.setAttribute('height', pR.height + 8);
-            }
+            var axisY = axisAtBottom ? (pR.bottom - cR.top) : (pR.top - cR.top);
+            clipRect.setAttribute('x',      pR.left - cR.left);
+            clipRect.setAttribute('y',      axisAtBottom ? (pR.top - cR.top) : (axisY - 8));
+            clipRect.setAttribute('width',  pR.width);
+            clipRect.setAttribute('height', pR.height + 10);
 
             el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
                 var r = item.getBoundingClientRect();
@@ -261,12 +249,18 @@
                     line.setAttribute('stroke-width',     '2.25');
                     line.setAttribute('stroke-dasharray', '4,3');
                     lg.appendChild(line);
+                    var glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    glow.setAttribute('cx', x);
+                    glow.setAttribute('cy', axisY);
+                    glow.setAttribute('r',  '10');
+                    glow.setAttribute('fill', 'rgba(251,191,36,0.22)');
+                    lg.appendChild(glow);
                     var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     dot.setAttribute('cx', x);
                     dot.setAttribute('cy', axisY);
-                    dot.setAttribute('r',  '4');
+                    dot.setAttribute('r',  '6');
                     dot.setAttribute('fill',         '#fbbf24');
-                    dot.setAttribute('stroke',       'rgba(18,12,4,0.8)');
+                    dot.setAttribute('stroke',       'rgba(18,12,4,0.7)');
                     dot.setAttribute('stroke-width', '1.5');
                     lg.appendChild(dot);
                 });
