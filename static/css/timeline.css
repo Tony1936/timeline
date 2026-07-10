@@ -449,8 +449,7 @@ html, body.timeline-view {
 
 #timeline-above .vis-time-axis {
     background: transparent !important;
-    border-bottom: none !important;
-    border-top: 3px solid rgba(250, 180, 50, 0.65) !important;
+    border: none !important;
 }
 
 .btn-axis-above {

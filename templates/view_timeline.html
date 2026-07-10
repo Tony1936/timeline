@@ -205,71 +205,75 @@
         syncFrom(timelineBelow, timelineAbove);
     }
 
-    /* ── Range-event connector lines ─────────────────────────── */
-    function setupRangeLines(tl, el, axisAtBottom) {
+    /* ── Range-event connector lines (single SVG over wrapper) ── */
+    function setupRangeLines() {
+        var wrapEl = aboveEl.parentElement;
+        if (!wrapEl) { return; }
+        wrapEl.style.position = 'relative';
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:hidden;';
-        el.style.position = 'relative';
-        var defs     = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
-        clipPath.id  = 'vcc-' + el.id;
-        var clipRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        clipPath.appendChild(clipRect);
-        defs.appendChild(clipPath);
-        svg.appendChild(defs);
         var lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        lg.setAttribute('clip-path', 'url(#vcc-' + el.id + ')');
         svg.appendChild(lg);
-        el.appendChild(svg);
+        wrapEl.appendChild(svg);
 
-        tl.on('changed', function () {
+        function redraw() {
             lg.innerHTML = '';
-            var cp = el.querySelector('.vis-panel.vis-center');
-            if (!cp) { return; }
-            var cR = el.getBoundingClientRect();
-            var pR = cp.getBoundingClientRect();
+            var wR = wrapEl.getBoundingClientRect();
 
-            var axisY = axisAtBottom ? (pR.bottom - cR.top) : (pR.top - cR.top);
-            clipRect.setAttribute('x',      pR.left - cR.left);
-            clipRect.setAttribute('y',      axisAtBottom ? (pR.top - cR.top) : (axisY - 8));
-            clipRect.setAttribute('width',  pR.width);
-            clipRect.setAttribute('height', pR.height + 10);
+            /* Real axis line: bottom of #timeline-below's top vis-time-axis.
+               Falls back to bottom of #timeline-above's bottom panel when
+               there are no below-axis roles. */
+            var axisY = null;
+            if (timelineBelow && belowEl.style.display !== 'none') {
+                var bta = belowEl.querySelector('.vis-panel.vis-top .vis-time-axis');
+                if (bta) { axisY = bta.getBoundingClientRect().bottom - wR.top; }
+            }
+            if (axisY === null && timelineAbove && aboveEl.style.display !== 'none') {
+                var aba = aboveEl.querySelector('.vis-panel.vis-bottom .vis-time-axis');
+                if (aba) { axisY = aba.getBoundingClientRect().bottom - wR.top; }
+            }
+            if (axisY === null) { return; }
 
-            el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
-                var r = item.getBoundingClientRect();
-                if (r.width < 4) { return; }
-                var x1    = r.left  - cR.left;
-                var x2    = r.right - cR.left;
-                var itemY = axisAtBottom ? (r.bottom - cR.top) : (r.top - cR.top);
-                [x1, x2].forEach(function (x) {
-                    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line.setAttribute('x1', x);    line.setAttribute('y1', itemY);
-                    line.setAttribute('x2', x);    line.setAttribute('y2', axisY);
-                    line.setAttribute('stroke',           'rgba(251,191,36,0.85)');
-                    line.setAttribute('stroke-width',     '2.25');
-                    line.setAttribute('stroke-dasharray', '4,3');
-                    lg.appendChild(line);
-                    var glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    glow.setAttribute('cx', x);
-                    glow.setAttribute('cy', axisY);
-                    glow.setAttribute('r',  '10');
-                    glow.setAttribute('fill', 'rgba(251,191,36,0.22)');
-                    lg.appendChild(glow);
-                    var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    dot.setAttribute('cx', x);
-                    dot.setAttribute('cy', axisY);
-                    dot.setAttribute('r',  '6');
-                    dot.setAttribute('fill',         '#fbbf24');
-                    dot.setAttribute('stroke',       'rgba(18,12,4,0.7)');
-                    dot.setAttribute('stroke-width', '1.5');
-                    lg.appendChild(dot);
+            function drawFor(el, axisAtBottom) {
+                if (!el || el.style.display === 'none') { return; }
+                el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
+                    var r = item.getBoundingClientRect();
+                    if (r.width < 4) { return; }
+                    var x1    = r.left  - wR.left;
+                    var x2    = r.right - wR.left;
+                    var itemY = axisAtBottom ? (r.bottom - wR.top) : (r.top - wR.top);
+                    [x1, x2].forEach(function (x) {
+                        var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', x);  line.setAttribute('y1', itemY);
+                        line.setAttribute('x2', x);  line.setAttribute('y2', axisY);
+                        line.setAttribute('stroke',           'rgba(251,191,36,0.85)');
+                        line.setAttribute('stroke-width',     '2.25');
+                        line.setAttribute('stroke-dasharray', '4,3');
+                        lg.appendChild(line);
+                        var glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        glow.setAttribute('cx', x);  glow.setAttribute('cy', axisY);
+                        glow.setAttribute('r',  '10');
+                        glow.setAttribute('fill', 'rgba(251,191,36,0.22)');
+                        lg.appendChild(glow);
+                        var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        dot.setAttribute('cx', x);  dot.setAttribute('cy', axisY);
+                        dot.setAttribute('r',  '6');
+                        dot.setAttribute('fill',         '#fbbf24');
+                        dot.setAttribute('stroke',       'rgba(18,12,4,0.7)');
+                        dot.setAttribute('stroke-width', '1.5');
+                        lg.appendChild(dot);
+                    });
                 });
-            });
-        });
-    }
+            }
 
-    if (timelineAbove) { setupRangeLines(timelineAbove, aboveEl, true);  }
-    if (timelineBelow) { setupRangeLines(timelineBelow, belowEl, false); }
+            drawFor(aboveEl, true);
+            drawFor(belowEl, false);
+        }
+
+        if (timelineAbove) { timelineAbove.on('changed', redraw); }
+        if (timelineBelow) { timelineBelow.on('changed', redraw); }
+    }
+    setupRangeLines();
 
     /* ── Resize ───────────────────────────────────────────────── */
     function distributeGroups() {
