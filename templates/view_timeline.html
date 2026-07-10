@@ -219,6 +219,27 @@
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;'
             + 'pointer-events:none;z-index:2147483647;overflow:visible;';
+
+        /* Glow filter — makes amber lines visible against any background */
+        var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        var filt = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+        filt.setAttribute('id', 'rl-glow');
+        filt.setAttribute('x', '-50%'); filt.setAttribute('y', '-50%');
+        filt.setAttribute('width', '200%'); filt.setAttribute('height', '200%');
+        var feBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+        feBlur.setAttribute('in', 'SourceGraphic');
+        feBlur.setAttribute('stdDeviation', '2.5');
+        feBlur.setAttribute('result', 'blur');
+        var feMerge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
+        ['blur', 'SourceGraphic'].forEach(function(inp) {
+            var n = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+            n.setAttribute('in', inp);
+            feMerge.appendChild(n);
+        });
+        filt.appendChild(feBlur); filt.appendChild(feMerge);
+        defs.appendChild(filt);
+        svg.appendChild(defs);
+
         var lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         svg.appendChild(lg);
         document.body.appendChild(svg);
@@ -264,13 +285,39 @@
             }
             if (axisY === null) { return; }
 
-            function makeLine(x1, y1, x2, y2, stroke, sw, dash) {
+            /* gapTop — bottom of the above center panel (top of the gap band).
+               The gap has no dark group-row overlay, so the medieval image shows
+               through at full brightness making thin lines invisible. We fill it
+               with a dark rect so amber lines have the same contrast as inside
+               the group rows. */
+            var gapTop = null;
+            if (timelineAbove && aboveEl && aboveEl.style.display !== 'none') {
+                var aboveCenter = aboveEl.querySelector('.vis-panel.vis-center');
+                if (aboveCenter) { gapTop = aboveCenter.getBoundingClientRect().bottom; }
+            }
+
+            /* Dark background strip across the gap */
+            if (gapTop !== null && axisY > gapTop) {
+                var leftW = 0;
+                var leftPnl = (belowEl || aboveEl).querySelector('.vis-panel.vis-left');
+                if (leftPnl) { leftW = leftPnl.getBoundingClientRect().width; }
+                var gapRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                gapRect.setAttribute('x', leftW);
+                gapRect.setAttribute('y', gapTop);
+                gapRect.setAttribute('width', window.innerWidth - leftW);
+                gapRect.setAttribute('height', axisY - gapTop);
+                gapRect.setAttribute('fill', 'rgba(10,14,20,0.75)');
+                lg.appendChild(gapRect);
+            }
+
+            function makeLine(x1, y1, x2, y2, stroke, sw, dash, glow) {
                 var el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 el.setAttribute('x1', x1); el.setAttribute('y1', y1);
                 el.setAttribute('x2', x2); el.setAttribute('y2', y2);
                 el.setAttribute('stroke', stroke);
                 el.setAttribute('stroke-width', sw);
                 if (dash) { el.setAttribute('stroke-dasharray', dash); }
+                if (glow) { el.setAttribute('filter', 'url(#rl-glow)'); }
                 return el;
             }
             function makeDot(x, y, r, fill, strokeCol, strokeW) {
@@ -291,12 +338,12 @@
                     if (r.width < 4) { return; }
                     var itemY = axisAtBottom ? r.bottom : r.top;
                     [r.left, r.right].forEach(function (x) {
-                        /* single dashed line from event edge to axis */
+                        /* dark shadow line then glowing amber line, edge to axis */
                         lg.appendChild(makeLine(x, itemY, x, axisY,
-                            'rgba(0,0,0,0.85)', 6, '6,4'));
+                            'rgba(0,0,0,0.85)', 6, '6,4', false));
                         lg.appendChild(makeLine(x, itemY, x, axisY,
-                            'rgba(251,191,36,1)', 3, '6,4'));
-                        /* glow + dot at axis */
+                            'rgba(251,191,36,1)', 3, '6,4', true));
+                        /* glow halo + solid dot at axis */
                         lg.appendChild(makeDot(x, axisY, 10,
                             'rgba(251,191,36,0.22)', null, null));
                         lg.appendChild(makeDot(x, axisY, 6,
