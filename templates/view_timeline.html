@@ -205,32 +205,34 @@
         syncFrom(timelineBelow, timelineAbove);
     }
 
-    /* ── Range-event connector lines (single SVG over wrapper) ── */
+    /* ── Range-event connector lines (body-level fixed SVG) ───── */
+    /* Attached to document.body so it sits above every stacking  */
+    /* context; uses raw viewport coords from getBoundingClientRect */
     function setupRangeLines() {
-        var wrapEl = aboveEl.parentElement;
-        if (!wrapEl) { return; }
-        wrapEl.style.position = 'relative';
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:hidden;';
+        svg.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:visible;';
         var lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         svg.appendChild(lg);
-        wrapEl.appendChild(svg);
+        document.body.appendChild(svg);
 
         function redraw() {
             lg.innerHTML = '';
-            var wR = wrapEl.getBoundingClientRect();
 
-            /* Real axis line: bottom of #timeline-below's top vis-time-axis.
-               Falls back to bottom of #timeline-above's bottom panel when
-               there are no below-axis roles. */
+            /* Find the axis Y in viewport coordinates.
+               Primary: bottom of #timeline-below's vis-time-axis in the top panel.
+               Fallback: bottom of #timeline-above's vis-time-axis in the bottom panel
+               (used when all roles are assigned above). */
             var axisY = null;
             if (timelineBelow && belowEl.style.display !== 'none') {
-                var bta = belowEl.querySelector('.vis-panel.vis-top .vis-time-axis');
-                if (bta) { axisY = bta.getBoundingClientRect().bottom - wR.top; }
+                /* The center panel's TOP edge is exactly where the axis bar ends.
+                   This avoids the vis-time-axis.vis-background zero-height trap. */
+                var bc = belowEl.querySelector('.vis-panel.vis-center');
+                if (bc) { axisY = bc.getBoundingClientRect().top; }
             }
             if (axisY === null && timelineAbove && aboveEl.style.display !== 'none') {
-                var aba = aboveEl.querySelector('.vis-panel.vis-bottom .vis-time-axis');
-                if (aba) { axisY = aba.getBoundingClientRect().bottom - wR.top; }
+                /* For above-only layout, use center panel BOTTOM (axis is at bottom). */
+                var ac = aboveEl.querySelector('.vis-panel.vis-center');
+                if (ac) { axisY = ac.getBoundingClientRect().bottom; }
             }
             if (axisY === null) { return; }
 
@@ -239,9 +241,9 @@
                 el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
                     var r = item.getBoundingClientRect();
                     if (r.width < 4) { return; }
-                    var x1    = r.left  - wR.left;
-                    var x2    = r.right - wR.left;
-                    var itemY = axisAtBottom ? (r.bottom - wR.top) : (r.top - wR.top);
+                    var x1    = r.left;
+                    var x2    = r.right;
+                    var itemY = axisAtBottom ? r.bottom : r.top;
                     [x1, x2].forEach(function (x) {
                         var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                         line.setAttribute('x1', x);  line.setAttribute('y1', itemY);
@@ -272,6 +274,7 @@
 
         if (timelineAbove) { timelineAbove.on('changed', redraw); }
         if (timelineBelow) { timelineBelow.on('changed', redraw); }
+        window.addEventListener('resize', redraw);
     }
     setupRangeLines();
 
