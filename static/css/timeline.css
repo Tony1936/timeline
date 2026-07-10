@@ -430,6 +430,28 @@ html, body.timeline-view {
     overflow: hidden;
 }
 
+#timeline-above .vis-panel.vis-left,
+#timeline-below .vis-panel.vis-left {
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+}
+
+#timeline-above .vis-label,
+#timeline-below .vis-label {
+    white-space: normal !important;
+    word-break: break-word !important;
+}
+
+#timeline-above .vis-time-axis .vis-text {
+    display: none !important;
+}
+
+#timeline-above .vis-time-axis {
+    background: transparent !important;
+    border-bottom: none !important;
+}
+
 .btn-axis-above {
     border-color: rgba(251, 191, 36, 0.75);
     color: #fbbf24;

@@ -98,18 +98,16 @@
         var hero  = document.querySelector('.timeline-hero');
         var heroH = hero ? hero.offsetHeight : 130;
         var totalH = Math.max(400, window.innerHeight - heroH);
-        var aboveH, belowH;
-        if (hasAbove && hasBelow) {
-            aboveH = Math.floor(totalH / 2);
-            belowH = totalH - aboveH;
-        } else if (hasAbove) {
-            aboveH = totalH; belowH = 0;
-        } else {
-            aboveH = 0; belowH = totalH;
-        }
-        var perAbove = hasAbove ? Math.max(60, Math.floor((aboveH - 50) / aboveGroups.length)) : 80;
-        var perBelow = hasBelow ? Math.max(60, Math.floor((belowH - 50) / belowGroups.length)) : 80;
-        return { aboveH: aboveH, belowH: belowH, perAbove: perAbove, perBelow: perBelow };
+        var totalGroups = aboveGroups.length + belowGroups.length;
+        var axisBarH = 52;
+        var perG = totalGroups > 0
+            ? Math.max(60, Math.floor((totalH - (hasAbove && hasBelow ? 2 : 1) * axisBarH) / totalGroups))
+            : 80;
+        var aboveH = hasAbove ? aboveGroups.length * perG + axisBarH : 0;
+        var belowH = hasBelow ? belowGroups.length * perG + axisBarH : 0;
+        if (!hasAbove) { belowH = totalH; perG = belowGroups.length > 0 ? Math.max(60, Math.floor((totalH - axisBarH) / belowGroups.length)) : 80; }
+        if (!hasBelow) { aboveH = totalH; perG = aboveGroups.length > 0 ? Math.max(60, Math.floor((totalH - axisBarH) / aboveGroups.length)) : 80; }
+        return { aboveH: aboveH, belowH: belowH, perG: perG };
     }
 
     var layout = calcLayout();
@@ -122,8 +120,8 @@
         });
     }
 
-    var dsGroupsAbove = new vis.DataSet(makeGroupRows(aboveGroups, layout.perAbove));
-    var dsGroupsBelow = new vis.DataSet(makeGroupRows(belowGroups, layout.perBelow));
+    var dsGroupsAbove = new vis.DataSet(makeGroupRows(aboveGroups, layout.perG));
+    var dsGroupsBelow = new vis.DataSet(makeGroupRows(belowGroups, layout.perG));
     var dsItemsAbove  = new vis.DataSet(aboveItems);
     var dsItemsBelow  = new vis.DataSet(belowItems);
 
@@ -153,7 +151,7 @@
     if (hasAbove) {
         aboveEl.style.display = 'block';
         var optsA = Object.assign({}, commonOpts, {
-            orientation: { axis: 'bottom', item: 'bottom' },
+            orientation: 'bottom',
             height: layout.aboveH + 'px'
         });
         timelineAbove = new vis.Timeline(aboveEl, dsItemsAbove, optsA);
@@ -165,7 +163,7 @@
     if (hasBelow) {
         belowEl.style.display = 'block';
         var optsB = Object.assign({}, commonOpts, {
-            orientation: { axis: 'top', item: 'bottom' },
+            orientation: 'top',
             height: layout.belowH + 'px'
         });
         timelineBelow = new vis.Timeline(belowEl, dsItemsBelow, optsB);
@@ -264,14 +262,14 @@
             timelineAbove.setOptions({ height: l.aboveH + 'px' });
             dsGroupsAbove.update(aboveGroups.map(function (g) {
                 var col = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
-                return { id: g.id, style: 'height:' + l.perAbove + 'px;' + col };
+                return { id: g.id, style: 'height:' + l.perG + 'px;' + col };
             }));
         }
         if (timelineBelow) {
             timelineBelow.setOptions({ height: l.belowH + 'px' });
             dsGroupsBelow.update(belowGroups.map(function (g) {
                 var col = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
-                return { id: g.id, style: 'height:' + l.perBelow + 'px;' + col };
+                return { id: g.id, style: 'height:' + l.perG + 'px;' + col };
             }));
         }
     }
