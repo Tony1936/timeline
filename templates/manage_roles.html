@@ -28,6 +28,15 @@
                 {% endif %}
             </td>
             <td class="role-name">{{ role.name }}</td>
+            <td class="role-axis-btn">
+                <form method="post" action="{{ url_for('flip_role_side', timeline_id=timeline.id, role_id=role.id) }}" style="display:inline;">
+                    {% if role.axis_side == 'above' %}
+                    <button type="submit" class="btn btn-sm btn-axis-above" title="Currently above axis — click to move below">&#9650; Above axis</button>
+                    {% else %}
+                    <button type="submit" class="btn btn-sm btn-axis-below" title="Currently below axis — click to move above">&#9660; Below axis</button>
+                    {% endif %}
+                </form>
+            </td>
             <td class="role-delete-btn">
                 <form method="post" action="{{ url_for('delete_role', timeline_id=timeline.id, role_id=role.id) }}"
                       onsubmit="return confirm('Delete role &quot;{{ role.name }}&quot; and all its events?');"

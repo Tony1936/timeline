@@ -67,6 +67,7 @@ class Role(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     name       = db.Column(db.String(200), nullable=False)
     sort_order = db.Column(db.Integer, default=0)
+    axis_side  = db.Column(db.String(10), nullable=False, default='below')
 
     timeline_id = db.Column(db.Integer, db.ForeignKey("timelines.id"), nullable=False)
 

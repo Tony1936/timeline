@@ -48,7 +48,8 @@
         </div>
     {% else %}
     <div class="timeline-wrapper">
-        <div id="timeline"></div>
+        <div id="timeline-above" class="timeline-half"></div>
+        <div id="timeline-below" class="timeline-half"></div>
     </div>
     {% endif %}
 
@@ -69,48 +70,73 @@
 {% if items %}
 <script>
 (function () {
-    var container = document.getElementById('timeline');
-    if (!container) { return; }
+    var aboveEl = document.getElementById('timeline-above');
+    var belowEl = document.getElementById('timeline-below');
+    if (!aboveEl || !belowEl) { return; }
 
     document.documentElement.style.overflowY = 'hidden';
 
     var CAN_EDIT = {{ can_edit | tojson }};
-    var items    = {{ items|tojson }};
+    var allItems = {{ items|tojson }};
     var groups   = {{ groups|tojson }};
 
-    var allItems     = items.slice();
-    var datasetItems = new vis.DataSet(items);
+    /* ── Split roles by axis side ─────────────────────────────── */
+    var aboveGroups = groups.filter(function (g) { return g.axis_side === 'above'; });
+    var belowGroups = groups.filter(function (g) { return g.axis_side !== 'above'; });
 
+    var aboveGroupIds = {};
+    aboveGroups.forEach(function (g) { aboveGroupIds[g.id] = true; });
+
+    var aboveItems = allItems.filter(function (it) { return  aboveGroupIds[it.group]; });
+    var belowItems = allItems.filter(function (it) { return !aboveGroupIds[it.group]; });
+
+    var hasAbove = aboveGroups.length > 0;
+    var hasBelow = belowGroups.length > 0;
+
+    /* ── Layout ───────────────────────────────────────────────── */
     function calcLayout() {
         var hero  = document.querySelector('.timeline-hero');
         var heroH = hero ? hero.offsetHeight : 130;
         var totalH = Math.max(400, window.innerHeight - heroH);
-        var perG   = groups.length > 0
-                        ? Math.max(60, Math.floor((totalH - 50) / groups.length))
-                        : 80;
-        return { totalH: totalH, perG: perG };
+        var aboveH, belowH;
+        if (hasAbove && hasBelow) {
+            aboveH = Math.floor(totalH / 2);
+            belowH = totalH - aboveH;
+        } else if (hasAbove) {
+            aboveH = totalH; belowH = 0;
+        } else {
+            aboveH = 0; belowH = totalH;
+        }
+        var perAbove = hasAbove ? Math.max(60, Math.floor((aboveH - 50) / aboveGroups.length)) : 80;
+        var perBelow = hasBelow ? Math.max(60, Math.floor((belowH - 50) / belowGroups.length)) : 80;
+        return { aboveH: aboveH, belowH: belowH, perAbove: perAbove, perBelow: perBelow };
     }
 
     var layout = calcLayout();
 
-    var initialGroups = groups.map(function (g) {
-        var colour = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
-        return { id: g.id, content: g.content, order: g.order, colour: g.colour,
-                 style: 'height:' + layout.perG + 'px;' + colour };
-    });
-    var datasetGroups = new vis.DataSet(initialGroups);
+    /* ── Datasets ─────────────────────────────────────────────── */
+    function makeGroupRows(grps, perH) {
+        return grps.map(function (g) {
+            var col = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
+            return { id: g.id, content: g.content, order: g.order, style: 'height:' + perH + 'px;' + col };
+        });
+    }
 
-    var options = {
+    var dsGroupsAbove = new vis.DataSet(makeGroupRows(aboveGroups, layout.perAbove));
+    var dsGroupsBelow = new vis.DataSet(makeGroupRows(belowGroups, layout.perBelow));
+    var dsItemsAbove  = new vis.DataSet(aboveItems);
+    var dsItemsBelow  = new vis.DataSet(belowItems);
+
+    /* ── Common vis.js options ────────────────────────────────── */
+    var commonOpts = {
         stack: false,
         zoomable: true,
         moveable: true,
-        orientation: 'top',
         selectable: true,
         tooltip: { followMouse: false, overflowMethod: 'none' },
         margin: { item: 20, axis: 10 },
         groupHeightMode: 'fixed',
         groupOrder: 'order',
-        height: layout.totalH + 'px',
         zoomMin: 1000 * 60 * 60 * 24,
         zoomMax: 1000 * 60 * 60 * 24 * 365 * 500,
         showCurrentTime: false,
@@ -121,69 +147,134 @@
         }
     };
 
-    var timeline = new vis.Timeline(container, datasetItems, options);
-    timeline.setGroups(datasetGroups);
-    timeline.fit();
+    /* ── Timeline instances ───────────────────────────────────── */
+    var timelineAbove = null, timelineBelow = null;
+
+    if (hasAbove) {
+        aboveEl.style.display = 'block';
+        var optsA = Object.assign({}, commonOpts, {
+            orientation: { axis: 'bottom', item: 'bottom' },
+            height: layout.aboveH + 'px'
+        });
+        timelineAbove = new vis.Timeline(aboveEl, dsItemsAbove, optsA);
+        timelineAbove.setGroups(dsGroupsAbove);
+    } else {
+        aboveEl.style.display = 'none';
+    }
+
+    if (hasBelow) {
+        belowEl.style.display = 'block';
+        var optsB = Object.assign({}, commonOpts, {
+            orientation: { axis: 'top', item: 'bottom' },
+            height: layout.belowH + 'px'
+        });
+        timelineBelow = new vis.Timeline(belowEl, dsItemsBelow, optsB);
+        timelineBelow.setGroups(dsGroupsBelow);
+    } else {
+        belowEl.style.display = 'none';
+    }
+
+    var primaryTL = timelineBelow || timelineAbove;
+
+    /* ── Fit to all items ─────────────────────────────────────── */
+    function fitAll(src) {
+        var lst = src || allItems;
+        if (!lst.length) return;
+        var starts = lst.map(function (it) { return new Date(it.start).getTime(); }).filter(function (t) { return !isNaN(t); });
+        var ends   = lst.map(function (it) { return new Date(it.end || it.start).getTime(); }).filter(function (t) { return !isNaN(t); });
+        if (!starts.length) return;
+        var minT = Math.min.apply(null, starts);
+        var maxT = Math.max.apply(null, ends);
+        var pad  = Math.max((maxT - minT) * 0.05, 86400000 * 30);
+        var s = new Date(minT - pad), e = new Date(maxT + pad);
+        if (timelineAbove) { timelineAbove.setWindow(s, e, { animation: false }); }
+        if (timelineBelow) { timelineBelow.setWindow(s, e, { animation: false }); }
+    }
+    fitAll();
+
+    /* ── Synchronise pan / zoom ───────────────────────────────── */
+    var _syncing = false;
+    function syncFrom(src, tgt) {
+        src.on('rangechange', function (props) {
+            if (_syncing) { return; }
+            _syncing = true;
+            tgt.setWindow(props.start, props.end, { animation: false });
+            _syncing = false;
+        });
+    }
+    if (timelineAbove && timelineBelow) {
+        syncFrom(timelineAbove, timelineBelow);
+        syncFrom(timelineBelow, timelineAbove);
+    }
 
     /* ── Range-event connector lines ─────────────────────────── */
-    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:hidden;';
-    container.style.position = 'relative';
+    function setupRangeLines(tl, el, axisAtBottom) {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:hidden;';
+        el.style.position = 'relative';
+        var defs     = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+        clipPath.id  = 'vcc-' + el.id;
+        var clipRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        clipPath.appendChild(clipRect);
+        defs.appendChild(clipPath);
+        svg.appendChild(defs);
+        var lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        lg.setAttribute('clip-path', 'url(#vcc-' + el.id + ')');
+        svg.appendChild(lg);
+        el.appendChild(svg);
 
-    var defs     = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
-    clipPath.id  = 'vis-center-clip';
-    var clipRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    clipPath.appendChild(clipRect);
-    defs.appendChild(clipPath);
-    svg.appendChild(defs);
-
-    var linesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    linesGroup.setAttribute('clip-path', 'url(#vis-center-clip)');
-    svg.appendChild(linesGroup);
-    container.appendChild(svg);
-
-    function drawRangeLines() {
-        linesGroup.innerHTML = '';
-        var centerPanel = container.querySelector('.vis-panel.vis-center');
-        if (!centerPanel) return;
-        var cRect = container.getBoundingClientRect();
-        var pRect = centerPanel.getBoundingClientRect();
-        clipRect.setAttribute('x',      pRect.left - cRect.left);
-        clipRect.setAttribute('y',      pRect.top  - cRect.top);
-        clipRect.setAttribute('width',  pRect.width);
-        clipRect.setAttribute('height', pRect.height);
-        var axisY = pRect.top - cRect.top;
-        container.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
-            var r = item.getBoundingClientRect();
-            if (r.width < 4) return;
-            var x1 = r.left  - cRect.left;
-            var x2 = r.right - cRect.left;
-            var itemY = r.top - cRect.top;
-            [x1, x2].forEach(function (x) {
-                var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', x); line.setAttribute('y1', axisY);
-                line.setAttribute('x2', x); line.setAttribute('y2', itemY);
-                line.setAttribute('stroke',           'rgba(251,191,36,0.85)');
-                line.setAttribute('stroke-width',     '2.25');
-                line.setAttribute('stroke-dasharray', '4,3');
-                linesGroup.appendChild(line);
+        tl.on('changed', function () {
+            lg.innerHTML = '';
+            var cp = el.querySelector('.vis-panel.vis-center');
+            if (!cp) { return; }
+            var cR = el.getBoundingClientRect();
+            var pR = cp.getBoundingClientRect();
+            clipRect.setAttribute('x',      pR.left - cR.left);
+            clipRect.setAttribute('y',      pR.top  - cR.top);
+            clipRect.setAttribute('width',  pR.width);
+            clipRect.setAttribute('height', pR.height);
+            var axisY = axisAtBottom ? (pR.bottom - cR.top) : (pR.top - cR.top);
+            el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
+                var r = item.getBoundingClientRect();
+                if (r.width < 4) { return; }
+                var x1    = r.left  - cR.left;
+                var x2    = r.right - cR.left;
+                var itemY = axisAtBottom ? (r.bottom - cR.top) : (r.top - cR.top);
+                [x1, x2].forEach(function (x) {
+                    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x);    line.setAttribute('y1', axisY);
+                    line.setAttribute('x2', x);    line.setAttribute('y2', itemY);
+                    line.setAttribute('stroke',           'rgba(251,191,36,0.85)');
+                    line.setAttribute('stroke-width',     '2.25');
+                    line.setAttribute('stroke-dasharray', '4,3');
+                    lg.appendChild(line);
+                });
             });
         });
     }
 
-    timeline.on('changed', drawRangeLines);
+    if (timelineAbove) { setupRangeLines(timelineAbove, aboveEl, true);  }
+    if (timelineBelow) { setupRangeLines(timelineBelow, belowEl, false); }
 
+    /* ── Resize ───────────────────────────────────────────────── */
     function distributeGroups() {
         var l = calcLayout();
-        timeline.setOptions({ height: l.totalH + 'px' });
-        var updated = groups.map(function (g) {
-            var colour = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
-            return { id: g.id, style: 'height:' + l.perG + 'px;' + colour };
-        });
-        datasetGroups.update(updated);
+        if (timelineAbove) {
+            timelineAbove.setOptions({ height: l.aboveH + 'px' });
+            dsGroupsAbove.update(aboveGroups.map(function (g) {
+                var col = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
+                return { id: g.id, style: 'height:' + l.perAbove + 'px;' + col };
+            }));
+        }
+        if (timelineBelow) {
+            timelineBelow.setOptions({ height: l.belowH + 'px' });
+            dsGroupsBelow.update(belowGroups.map(function (g) {
+                var col = g.colour ? 'border-left:4px solid ' + g.colour + ';padding-left:8px;box-sizing:border-box;' : '';
+                return { id: g.id, style: 'height:' + l.perBelow + 'px;' + col };
+            }));
+        }
     }
-
     window.addEventListener('resize', distributeGroups);
 
     /* ── Search & filter ──────────────────────────────────────── */
@@ -192,19 +283,21 @@
 
     function applySearch(q) {
         q = (q || '').toLowerCase().trim();
+        var aF, bF;
         if (!q) {
-            datasetItems.clear();
-            datasetItems.add(allItems);
-            return;
+            aF = aboveItems; bF = belowItems;
+        } else {
+            var filtered = allItems.filter(function (it) {
+                var title = (it.content || '').replace(/<[^>]*>/g, '').toLowerCase();
+                var desc  = (it.description || '').toLowerCase();
+                return title.indexOf(q) !== -1 || desc.indexOf(q) !== -1;
+            });
+            aF = filtered.filter(function (it) { return  aboveGroupIds[it.group]; });
+            bF = filtered.filter(function (it) { return !aboveGroupIds[it.group]; });
+            if (filtered.length) { fitAll(filtered); }
         }
-        var filtered = allItems.filter(function (it) {
-            var title = (it.content || '').replace(/<[^>]*>/g, '').toLowerCase();
-            var desc  = (it.description || '').toLowerCase();
-            return title.indexOf(q) !== -1 || desc.indexOf(q) !== -1;
-        });
-        datasetItems.clear();
-        datasetItems.add(filtered);
-        if (filtered.length) { timeline.fit(); }
+        dsItemsAbove.clear(); dsItemsAbove.add(aF);
+        dsItemsBelow.clear(); dsItemsBelow.add(bF);
     }
 
     if (searchInput) {
@@ -226,15 +319,14 @@
 
     function doJump() {
         var y = parseInt(jumpYear && jumpYear.value, 10);
-        if (isNaN(y)) return;
-        var w    = timeline.getWindow();
+        if (isNaN(y)) { return; }
+        var w    = primaryTL.getWindow();
         var span = w.end - w.start;
         var mid  = new Date(y, 5, 15).getTime();
-        timeline.setWindow(
-            new Date(mid - span / 2),
-            new Date(mid + span / 2),
-            { animation: { duration: 400, easingFunction: 'easeInOutQuad' } }
-        );
+        var s    = new Date(mid - span / 2), e = new Date(mid + span / 2);
+        var anim = { animation: { duration: 400, easingFunction: 'easeInOutQuad' } };
+        if (timelineAbove) { timelineAbove.setWindow(s, e, anim); }
+        if (timelineBelow) { timelineBelow.setWindow(s, e, anim); }
     }
 
     if (jumpBtn)  { jumpBtn.addEventListener('click', doJump); }
@@ -247,55 +339,46 @@
     /* ── Keyboard shortcuts ───────────────────────────────────── */
     document.addEventListener('keydown', function (e) {
         var tag = document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        var w    = timeline.getWindow();
-        var s    = w.start.getTime();
-        var en   = w.end.getTime();
-        var span = en - s;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') { return; }
+        var w    = primaryTL.getWindow();
+        var s    = w.start.getTime(), en = w.end.getTime(), span = en - s;
         var pan  = span * 0.2;
         var opts = { animation: { duration: 180, easingFunction: 'easeInOutQuad' } };
-        if (e.key === 'ArrowLeft') {
-            timeline.setWindow(new Date(s - pan), new Date(en - pan), opts);
-            e.preventDefault();
-        } else if (e.key === 'ArrowRight') {
-            timeline.setWindow(new Date(s + pan), new Date(en + pan), opts);
-            e.preventDefault();
-        } else if (e.key === '+' || e.key === '=') {
-            var z = span * 0.2;
-            timeline.setWindow(new Date(s + z), new Date(en - z), opts);
-            e.preventDefault();
-        } else if (e.key === '-') {
-            var z = span * 0.4;
-            timeline.setWindow(new Date(s - z), new Date(en + z), opts);
-            e.preventDefault();
-        } else if (e.key === 'Escape') {
-            closeEventPopup();
-            closeMapPopup();
-        }
-    });
-
-    container.addEventListener('mouseenter', function () {
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-    });
-    container.addEventListener('mouseleave', function () {
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
-    });
-
-    container.addEventListener('wheel', function (e) {
+        var ns, ne;
+        if      (e.key === 'ArrowLeft')        { ns = new Date(s - pan); ne = new Date(en - pan); }
+        else if (e.key === 'ArrowRight')       { ns = new Date(s + pan); ne = new Date(en + pan); }
+        else if (e.key === '+' || e.key === '=') { var za = span * 0.2; ns = new Date(s + za); ne = new Date(en - za); }
+        else if (e.key === '-')                { var zb = span * 0.4; ns = new Date(s - zb); ne = new Date(en + zb); }
+        else if (e.key === 'Escape') { closeEventPopup(); closeMapPopup(); return; }
+        else { return; }
         e.preventDefault();
-    }, { passive: false, capture: true });
+        if (timelineAbove) { timelineAbove.setWindow(ns, ne, opts); }
+        if (timelineBelow) { timelineBelow.setWindow(ns, ne, opts); }
+    });
 
+    /* ── Scroll lock ──────────────────────────────────────────── */
+    function addScrollLock(el) {
+        if (!el) { return; }
+        el.addEventListener('mouseenter', function () {
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+        });
+        el.addEventListener('mouseleave', function () {
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        });
+        el.addEventListener('wheel', function (ev) { ev.preventDefault(); }, { passive: false, capture: true });
+    }
+    if (hasAbove) { addScrollLock(aboveEl); }
+    if (hasBelow) { addScrollLock(belowEl); }
+
+    /* ── Helpers ──────────────────────────────────────────────── */
     function formatDate(dateString) {
-        if (!dateString) return "";
+        if (!dateString) { return ''; }
         return new Date(dateString).toDateString();
     }
 
-    /* ── Gallery state ────────────────────────────────────────── */
-    var _galleryIds  = [];
-    var _galleryIdx  = 0;
-
+    var _galleryIds = [], _galleryIdx = 0;
     function galleryNav(dir) {
         _galleryIdx = (_galleryIdx + dir + _galleryIds.length) % _galleryIds.length;
         var img = document.getElementById('galleryImg');
@@ -305,55 +388,39 @@
     }
     window.galleryNav = galleryNav;
 
-    /* ── Event popup ──────────────────────────────────────────── */
     function mdParse(text) {
         try {
             if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
                 var result = marked.parse(text);
                 if (typeof result === 'string') { return result; }
             }
-        } catch (e) {}
+        } catch (ex) {}
         return text.replace(/\n/g, '<br>');
     }
 
-    timeline.on('select', function (properties) {
-        if (!properties.items.length) return;
-
-        var ev = timeline.itemsData.get(properties.items[0]);
+    /* ── Event popup ──────────────────────────────────────────── */
+    function showEventPopup(ev) {
+        var popup = document.getElementById('eventPopup');
         if (!ev) {
-            document.getElementById('eventPopup').innerHTML =
-                "<div class='popup-inner'><h3>Event not found</h3></div>";
+            popup.innerHTML = "<div class='popup-inner'><h3>Event not found</h3></div>";
         } else {
             var html = "<div class='popup-inner'>";
-
-            /* Primary image */
             var imgMatch = ev.content ? ev.content.match(/<img[^>]*src='([^']*)'[^>]*>/) : null;
-            if (imgMatch) {
-                html += "<img src='" + imgMatch[1] + "' class='popup-img'>";
-            }
-
+            if (imgMatch) { html += "<img src='" + imgMatch[1] + "' class='popup-img'>"; }
             var heading = ev.content ? ev.content.replace(/<img[^>]*>/g, '').trim() : 'Event';
             html += "<h3>" + heading + "</h3>";
-
             if (ev.start) {
                 html += "<p class='popup-date'>&#128197; " + formatDate(ev.start);
                 if (ev.end) { html += " &ndash; " + formatDate(ev.end); }
                 html += "</p>";
             }
-
-            /* Description — rendered as Markdown */
             if (ev.description) {
                 html += "<div class='popup-desc'>" + mdParse(ev.description) + "</div>";
             }
-
-            /* Gallery carousel */
             if (ev.gallery_ids && ev.gallery_ids.length > 0) {
-                _galleryIds = ev.gallery_ids;
-                _galleryIdx = 0;
+                _galleryIds = ev.gallery_ids; _galleryIdx = 0;
                 html += "<div class='gallery-wrap'>";
-                if (_galleryIds.length > 1) {
-                    html += "<button class='gallery-btn gallery-prev' onclick='galleryNav(-1)'>&#8249;</button>";
-                }
+                if (_galleryIds.length > 1) { html += "<button class='gallery-btn gallery-prev' onclick='galleryNav(-1)'>&#8249;</button>"; }
                 html += "<img id='galleryImg' src='/image/" + _galleryIds[0] + "' class='gallery-img' alt='Gallery image'>";
                 if (_galleryIds.length > 1) {
                     html += "<button class='gallery-btn gallery-next' onclick='galleryNav(1)'>&#8250;</button>";
@@ -361,41 +428,41 @@
                 }
                 html += "</div>";
             }
-
             html += "</div>";
-
-            /* Actions — kept outside the scrollable area so they stay visible */
             html += "<div class='popup-actions'>";
-            if (ev.link_url) {
-                html += "<a href='" + ev.link_url + "' target='_blank' rel='noopener' class='btn btn-inline'>Read more &#8599;</a>";
-            }
-            if (ev.maps_id) {
-                html += "<button type='button' class='btn btn-inline btn-map' onclick='openMapPopup(\"/map/" + ev.maps_id + "\")'>Display Map</button>";
-            }
+            if (ev.link_url) { html += "<a href='" + ev.link_url + "' target='_blank' rel='noopener' class='btn btn-inline'>Read more &#8599;</a>"; }
+            if (ev.maps_id)  { html += "<button type='button' class='btn btn-inline btn-map' onclick='openMapPopup(\"/map/" + ev.maps_id + "\")'>Display Map</button>"; }
             if (CAN_EDIT) {
                 html += "<a href='/event/" + ev.id + "/edit' class='btn btn-inline'>Edit Event</a>";
                 html += "<form method='post' action='/event/" + ev.id + "/delete' style='display:inline;' data-confirm='Delete this event? This cannot be undone.'>";
-                html += "<button type='submit' class='btn btn-inline btn-danger'>Delete</button>";
-                html += "</form>";
+                html += "<button type='submit' class='btn btn-inline btn-danger'>Delete</button></form>";
             }
             html += "</div>";
-
-            document.getElementById('eventPopup').innerHTML = html;
+            popup.innerHTML = html;
         }
-
-        document.getElementById('eventPopup').style.display   = 'flex';
+        popup.style.display = 'flex';
         document.getElementById('popupOverlay').style.display = 'block';
-    });
+    }
+
+    function wireSelect(tl, ds) {
+        if (!tl) { return; }
+        tl.on('select', function (props) {
+            if (!props.items.length) { return; }
+            showEventPopup(ds.get(props.items[0]));
+        });
+    }
+    wireSelect(timelineAbove, dsItemsAbove);
+    wireSelect(timelineBelow, dsItemsBelow);
 
     function closeEventPopup() {
         document.getElementById('eventPopup').style.display   = 'none';
         document.getElementById('popupOverlay').style.display = 'none';
-        try { timeline.setSelection([]); } catch (e) {}
+        try { if (timelineAbove) { timelineAbove.setSelection([]); } } catch (ex) {}
+        try { if (timelineBelow) { timelineBelow.setSelection([]); } } catch (ex) {}
     }
-
     document.getElementById('popupOverlay').onclick = closeEventPopup;
 
-    /* ── Map popup ─────────────────────────────────────────── */
+    /* ── Map popup ────────────────────────────────────────────── */
     window.openMapPopup = function (src) {
         var mapImg = document.getElementById('mapImage');
         var mapPop = document.getElementById('mapPopup');
@@ -405,17 +472,13 @@
         mapPop.style.display = 'block';
         mapPop.focus();
     };
-
     function closeMapPopup() {
         document.getElementById('mapOverlay').style.display = 'none';
         document.getElementById('mapPopup').style.display   = 'none';
     }
-
     document.getElementById('mapOverlay').addEventListener('click', closeMapPopup);
     document.getElementById('mapCloseBtn').addEventListener('click', closeMapPopup);
-    document.getElementById('mapPopup').addEventListener('blur', function () {
-        setTimeout(closeMapPopup, 150);
-    });
+    document.getElementById('mapPopup').addEventListener('blur', function () { setTimeout(closeMapPopup, 150); });
 })();
 </script>
 {% endif %}

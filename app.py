@@ -32,6 +32,7 @@ def _apply_schema_migrations():
         ("events",    "map_asset_id",   "INTEGER DEFAULT NULL"),
         ("timelines", "image_id",       "INTEGER DEFAULT NULL"),
         ("events",    "link_url",       "VARCHAR(500) DEFAULT NULL"),
+        ("roles",     "axis_side",      "VARCHAR(10) NOT NULL DEFAULT 'below'"),
     ]
     with db.engine.connect() as conn:
         for tbl, col, ddl in _new_columns:
@@ -573,10 +574,11 @@ def view_timeline(timeline_id):
                     .order_by(Role.sort_order)
                     .all())
     groups = [{
-        "id":      role.id,
-        "content": role.name,
-        "order":   role.sort_order,
-        "colour":  ROLE_COLOURS[i % len(ROLE_COLOURS)],
+        "id":        role.id,
+        "content":   role.name,
+        "order":     role.sort_order,
+        "colour":    ROLE_COLOURS[i % len(ROLE_COLOURS)],
+        "axis_side": role.axis_side,
     } for i, role in enumerate(sorted_roles)]
 
     if timeline.image_id:
@@ -930,6 +932,19 @@ def move_role(timeline_id, role_id, direction):
         roles[idx].sort_order, roles[swap_idx].sort_order = (
             roles[swap_idx].sort_order, roles[idx].sort_order)
         db.session.commit()
+    return redirect(url_for("manage_roles", timeline_id=timeline_id))
+
+
+@app.route("/timeline/<int:timeline_id>/roles/<int:role_id>/flip_side", methods=["POST"])
+@login_required
+def flip_role_side(timeline_id, role_id):
+    if not can_edit_timeline(timeline_id):
+        abort(403)
+    role = Role.query.get_or_404(role_id)
+    if role.timeline_id != timeline_id:
+        abort(403)
+    role.axis_side = 'above' if role.axis_side == 'below' else 'below'
+    db.session.commit()
     return redirect(url_for("manage_roles", timeline_id=timeline_id))
 
 

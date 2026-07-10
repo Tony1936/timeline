@@ -424,9 +424,36 @@ html, body.timeline-view {
     border-top: 1px solid rgba(160, 130, 60, 0.3);
 }
 
-#timeline {
-    flex: 1;
-    min-height: 400px;
+#timeline-above,
+#timeline-below {
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.btn-axis-above {
+    border-color: rgba(251, 191, 36, 0.75);
+    color: #fbbf24;
+}
+
+.btn-axis-above:hover {
+    background: rgba(80, 60, 10, 0.9);
+    border-color: rgba(253, 230, 138, 0.9);
+    color: #fde68a;
+}
+
+.btn-axis-below {
+    border-color: rgba(120, 100, 50, 0.35);
+    color: #9b8a50;
+}
+
+.btn-axis-below:hover {
+    background: rgba(40, 30, 10, 0.9);
+    border-color: rgba(160, 130, 60, 0.6);
+    color: #c8a864;
+}
+
+.role-axis-btn {
+    padding: 6px 10px;
 }
 
 /* ====================================================
