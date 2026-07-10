@@ -205,34 +205,36 @@
         syncFrom(timelineBelow, timelineAbove);
     }
 
-    /* ── Range-event connector lines (body-level fixed SVG) ───── */
-    /* Attached to document.body so it sits above every stacking  */
-    /* context; uses raw viewport coords from getBoundingClientRect */
+    /* ── Range-event connector lines ──────────────────────────── */
+    /* SVG lives inside .timeline-wrapper (position:absolute,       */
+    /* z-index:9999). isolation:isolate on the wrapper creates a    */
+    /* clean stacking context so z-9999 beats vis.js's max z-10,   */
+    /* with no backdrop-filter compositor interference.             */
     function setupRangeLines() {
+        var wrapEl = document.querySelector('.timeline-wrapper');
+        if (!wrapEl) { return; }
+
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:visible;';
+        svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:visible;';
         var lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         svg.appendChild(lg);
-        document.body.appendChild(svg);
+        wrapEl.appendChild(svg);
 
         function redraw() {
             lg.innerHTML = '';
+            var wR = wrapEl.getBoundingClientRect();
 
-            /* Find the axis Y in viewport coordinates.
-               Primary: bottom of #timeline-below's vis-time-axis in the top panel.
-               Fallback: bottom of #timeline-above's vis-time-axis in the bottom panel
-               (used when all roles are assigned above). */
+            /* Find axisY in wrapper-relative coordinates.
+               Use .vis-panel.vis-center TOP edge — avoids the
+               zero-height .vis-time-axis.vis-background trap. */
             var axisY = null;
             if (timelineBelow && belowEl.style.display !== 'none') {
-                /* The center panel's TOP edge is exactly where the axis bar ends.
-                   This avoids the vis-time-axis.vis-background zero-height trap. */
                 var bc = belowEl.querySelector('.vis-panel.vis-center');
-                if (bc) { axisY = bc.getBoundingClientRect().top; }
+                if (bc) { axisY = bc.getBoundingClientRect().top - wR.top; }
             }
             if (axisY === null && timelineAbove && aboveEl.style.display !== 'none') {
-                /* For above-only layout, use center panel BOTTOM (axis is at bottom). */
                 var ac = aboveEl.querySelector('.vis-panel.vis-center');
-                if (ac) { axisY = ac.getBoundingClientRect().bottom; }
+                if (ac) { axisY = ac.getBoundingClientRect().bottom - wR.top; }
             }
             if (axisY === null) { return; }
 
@@ -241,9 +243,9 @@
                 el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
                     var r = item.getBoundingClientRect();
                     if (r.width < 4) { return; }
-                    var x1    = r.left;
-                    var x2    = r.right;
-                    var itemY = axisAtBottom ? r.bottom : r.top;
+                    var x1    = r.left  - wR.left;
+                    var x2    = r.right - wR.left;
+                    var itemY = axisAtBottom ? (r.bottom - wR.top) : (r.top - wR.top);
                     [x1, x2].forEach(function (x) {
                         var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                         line.setAttribute('x1', x);  line.setAttribute('y1', itemY);

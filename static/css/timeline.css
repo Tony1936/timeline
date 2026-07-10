@@ -419,8 +419,9 @@ html, body.timeline-view {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(1px);
+    position: relative;
+    background: rgba(0, 0, 0, 0.32);
+    isolation: isolate;
     border-top: 1px solid rgba(160, 130, 60, 0.3);
 }
 
