@@ -376,10 +376,9 @@
                             'rgba(0,0,0,0.85)', 6, '6,4', false));
                         lg.appendChild(makeLine(x, itemY, x, axisY,
                             'rgba(251,191,36,1)', 3, '6,4', true));
-                        lg.appendChild(makeDot(x, axisY, 10,
-                            'rgba(251,191,36,0.22)', null, null));
-                        lg.appendChild(makeDot(x, axisY, 6,
-                            '#fbbf24', 'rgba(18,12,4,0.7)', 1.5));
+                        /* single consistent solid dot — dark ring + amber fill */
+                        lg.appendChild(makeDot(x, axisY, 7,
+                            '#fbbf24', 'rgba(10,8,2,0.85)', 2));
                     });
                 });
             }
