@@ -411,13 +411,19 @@
                     });
                 });
 
-                /* Box events — vis.js draws its own connector line (.vis-item.vis-line)
-                   which we style amber/dashed via CSS.  We only need to push a dot
-                   so the full-circle amber dot appears centered on the axis seam. */
+                /* Box events — vis.js's own .vis-item.vis-line is hidden (it renders
+                   as black on some browsers/versions).  Draw our own thin amber
+                   dashed SVG line instead — no heavy dark shadow, just a single
+                   2px amber stroke so it looks like the original connector. */
                 el.querySelectorAll('.vis-item.vis-box').forEach(function (item) {
                     var r = item.getBoundingClientRect();
                     if (r.width < 4) { return; }
                     var cx = (r.left + r.right) / 2 - wrapRect.left;
+                    var itemY = axisAtBottom
+                        ? r.bottom - wrapRect.top
+                        : r.top    - wrapRect.top;
+                    lg.appendChild(makeLine(cx, itemY, cx, axisY,
+                        'rgba(251,191,36,0.85)', 2, '6,4', false));
                     dots.push({ x: cx, dotY: axisY });
                 });
             }
