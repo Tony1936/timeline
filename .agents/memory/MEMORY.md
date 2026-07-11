@@ -1,1 +1,1 @@
-- [Bilateral timeline SVG overlay](bilateral-svg-overlay.md) — body-fixed SVG at z-index:2147483647 draws range connector lines; gap portion invisible in Replit screenshots (real browsers work fine)
+- [Bilateral timeline dot fix](bilateral-dot-fix.md) — above-panel events are .vis-item.vis-box (not .vis-range); vis.js built-in dots are D-shaped due to vis-panel clipping

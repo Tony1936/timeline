@@ -428,7 +428,9 @@ html, body.timeline-view {
 #timeline-above,
 #timeline-below {
     flex-shrink: 0;
-    overflow: hidden;
+    /* overflow:hidden removed — it promoted these flex children to GPU
+       compositing layers that painted over our SVG/dot overlay siblings.
+       Vis.js clips its own content via .vis-timeline { overflow:hidden }. */
     background: rgba(0, 0, 0, 0.32);  /* dark tint only on the actual timelines */
 }
 
@@ -573,6 +575,14 @@ html, body.timeline-view {
 /* The central axis line */
 .vis-foreground .vis-group .vis-item-set {
     border-bottom: none !important;
+}
+
+/* Hide vis.js built-in connector lines and axis dots for all events.
+   We replace these with our own styled amber dashed lines + centered
+   HTML-div dots so they appear as full circles on the amber axis rule. */
+.vis-item.vis-line,
+.vis-item.vis-dot {
+    display: none !important;
 }
 
 /* ====================================================
