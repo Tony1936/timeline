@@ -365,8 +365,19 @@
             }
 
             /* ── Connector lines + dots for every range event ─────── */
-            function drawFor(el, axisAtBottom) {
+            /* Two-pass render: all lines drawn first, then all dots on
+               top so nothing cuts through them.
+               Dot centres are offset to sit FULLY inside their own panel:
+               above-panel dots at axisY − DOT_R (entirely above the line),
+               below-panel dots at axisY + DOT_R (entirely below the line).
+               The connector line still terminates at axisY so the dot
+               appears to be anchored on the amber rule from its side. */
+            var DOT_R = 7;
+            var dots = [];   /* {x, dotY} */
+
+            function drawLinesFor(el, axisAtBottom) {
                 if (!el || el.style.display === 'none') { return; }
+                var dotY = axisAtBottom ? axisY - DOT_R : axisY + DOT_R;
                 el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
                     var r = item.getBoundingClientRect();
                     if (r.width < 4) { return; }
@@ -376,15 +387,19 @@
                             'rgba(0,0,0,0.85)', 6, '6,4', false));
                         lg.appendChild(makeLine(x, itemY, x, axisY,
                             'rgba(251,191,36,1)', 3, '6,4', true));
-                        /* single consistent solid dot — dark ring + amber fill */
-                        lg.appendChild(makeDot(x, axisY, 7,
-                            '#fbbf24', 'rgba(10,8,2,0.85)', 2));
+                        dots.push({ x: x, dotY: dotY });
                     });
                 });
             }
 
-            drawFor(aboveEl, true);
-            drawFor(belowEl, false);
+            drawLinesFor(aboveEl, true);
+            drawLinesFor(belowEl, false);
+
+            /* Second pass — every dot on top of every line */
+            dots.forEach(function (d) {
+                lg.appendChild(makeDot(d.x, d.dotY, DOT_R,
+                    '#fbbf24', 'rgba(10,8,2,0.85)', 2));
+            });
         }
 
         if (timelineAbove) { timelineAbove.on('changed', redraw); }
