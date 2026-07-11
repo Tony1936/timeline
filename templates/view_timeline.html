@@ -49,6 +49,7 @@
     {% else %}
     <div class="timeline-wrapper">
         <div id="timeline-above" class="timeline-half"></div>
+        <div id="tl-axis"></div>
         <div id="timeline-below" class="timeline-half"></div>
     </div>
     {% endif %}
@@ -94,14 +95,20 @@
     var hasBelow = belowGroups.length > 0;
 
     /* ── Layout ───────────────────────────────────────────────── */
+    var CUSTOM_AXIS_H = 28;  /* height of our SVG-drawn axis strip */
+
     function calcLayout() {
         var hero  = document.querySelector('.timeline-hero');
         var heroH = hero ? hero.offsetHeight : 130;
         var totalH = Math.max(400, window.innerHeight - heroH);
         var totalGroups = aboveGroups.length + belowGroups.length;
-        var axisBarH = 52;
+        var bilateral = hasAbove && hasBelow;
+        /* When bilateral, vis.js axis bars are suppressed; custom axis takes CUSTOM_AXIS_H.
+           When single-sided, vis.js draws its own axis bar (52px). */
+        var axisBarH  = bilateral ? 0  : 52;
+        var customH   = bilateral ? CUSTOM_AXIS_H : 0;
         var perG = totalGroups > 0
-            ? Math.max(60, Math.floor((totalH - (hasAbove && hasBelow ? 2 : 1) * axisBarH) / totalGroups))
+            ? Math.max(60, Math.floor((totalH - customH - axisBarH) / totalGroups))
             : 80;
         var aboveH = hasAbove ? aboveGroups.length * perG + axisBarH : 0;
         var belowH = hasBelow ? belowGroups.length * perG + axisBarH : 0;
@@ -166,13 +173,19 @@
         belowEl.style.display = 'block';
         var optsB = Object.assign({}, commonOpts, {
             orientation: 'top',
-            height: layout.belowH + 'px'
+            height: layout.belowH + 'px',
+            showMinorLabels: false,
+            showMajorLabels: false
         });
         timelineBelow = new vis.Timeline(belowEl, dsItemsBelow, optsB);
         timelineBelow.setGroups(dsGroupsBelow);
     } else {
         belowEl.style.display = 'none';
     }
+
+    /* Show custom axis strip only in bilateral mode */
+    var tlAxisEl = document.getElementById('tl-axis');
+    if (tlAxisEl) { tlAxisEl.style.display = (hasAbove && hasBelow) ? 'block' : 'none'; }
 
     var primaryTL = timelineBelow || timelineAbove;
 
@@ -247,69 +260,106 @@
         function redraw() {
             lg.innerHTML = '';
 
-            /* axisY — viewport Y of the amber border-bottom on the foreground
-               vis-time-axis. In vis.js 7.7.0 the below top-panel may have one
-               OR two .vis-time-axis elements; pick whichever one is shorter than
-               95% of the panel — its border-bottom IS the visible amber line. */
+            /* ── axisY: centre of the amber axis line ─────────────── */
+            /* In bilateral mode we use the custom #tl-axis spacer div.
+               The amber line is drawn at the bottom 2px of that div.
+               axisY = bottom of div − 1  (centre of the 2px line).
+               In single-timeline mode fall back to vis.js panel edges. */
             var axisY = null;
-            if (timelineBelow && belowEl.style.display !== 'none') {
-                var topPanel = belowEl.querySelector('.vis-panel.vis-top');
-                if (topPanel) {
-                    var panelH  = topPanel.getBoundingClientRect().height;
-                    var taEls = Array.prototype.slice.call(
-                        topPanel.querySelectorAll('.vis-time-axis'));
-                    var sorted = taEls.slice().sort(function(a, b) {
-                        return a.getBoundingClientRect().height -
-                               b.getBoundingClientRect().height;
-                    });
-                    /* Use the shortest vis-time-axis if it is clearly shorter
-                       than the full panel (= it is the foreground/label element). */
-                    if (sorted.length > 0) {
-                        var shortest = sorted[0];
-                        if (shortest.getBoundingClientRect().height < panelH * 0.95) {
-                            axisY = shortest.getBoundingClientRect().bottom;
-                        }
-                    }
-                    if (axisY === null) {
-                        axisY = topPanel.getBoundingClientRect().bottom;
-                    }
-                }
-                if (axisY === null) {
-                    var bc = belowEl.querySelector('.vis-panel.vis-center');
-                    if (bc) { axisY = bc.getBoundingClientRect().top; }
-                }
-            }
-            if (axisY === null && timelineAbove && aboveEl.style.display !== 'none') {
+            var tlAxisEl = document.getElementById('tl-axis');
+            if (tlAxisEl && tlAxisEl.style.display !== 'none') {
+                var axR = tlAxisEl.getBoundingClientRect();
+                axisY = axR.bottom - 1;   /* centre of 2px amber line */
+            } else if (timelineBelow && belowEl.style.display !== 'none') {
+                var bc = belowEl.querySelector('.vis-panel.vis-center');
+                if (bc) { axisY = bc.getBoundingClientRect().top; }
+            } else if (timelineAbove && aboveEl.style.display !== 'none') {
                 var ac = aboveEl.querySelector('.vis-panel.vis-center');
                 if (ac) { axisY = ac.getBoundingClientRect().bottom; }
             }
             if (axisY === null) { return; }
 
-            /* gapTop — bottom of the above center panel (top of the gap band).
-               The gap has no dark group-row overlay, so the medieval image shows
-               through at full brightness making thin lines invisible. We fill it
-               with a dark rect so amber lines have the same contrast as inside
-               the group rows. */
+            /* ── left-panel width (group-label column) ────────────── */
+            var leftW = 0;
+            var leftPnl = (belowEl && belowEl.style.display !== 'none' ? belowEl : aboveEl)
+                          .querySelector('.vis-panel.vis-left');
+            if (leftPnl) { leftW = leftPnl.getBoundingClientRect().width; }
+            var contentW = window.innerWidth - leftW;
+
+            /* ── gapTop: bottom of above centre panel ─────────────── */
+            /* The gap has no group-row dark overlay so the medieval image
+               shows through at full brightness — thin amber lines become
+               invisible without a dark backdrop. */
             var gapTop = null;
             if (timelineAbove && aboveEl && aboveEl.style.display !== 'none') {
                 var aboveCenter = aboveEl.querySelector('.vis-panel.vis-center');
                 if (aboveCenter) { gapTop = aboveCenter.getBoundingClientRect().bottom; }
             }
 
-            /* Dark background strip across the gap */
+            /* ── Dark backdrop across the entire axis strip ───────── */
             if (gapTop !== null && axisY > gapTop) {
-                var leftW = 0;
-                var leftPnl = (belowEl || aboveEl).querySelector('.vis-panel.vis-left');
-                if (leftPnl) { leftW = leftPnl.getBoundingClientRect().width; }
                 var gapRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                 gapRect.setAttribute('x', leftW);
                 gapRect.setAttribute('y', gapTop);
-                gapRect.setAttribute('width', window.innerWidth - leftW);
-                gapRect.setAttribute('height', axisY - gapTop);
-                gapRect.setAttribute('fill', 'rgba(10,14,20,0.75)');
+                gapRect.setAttribute('width', contentW);
+                /* extend rect to cover amber line too */
+                gapRect.setAttribute('height', axisY - gapTop + 2);
+                gapRect.setAttribute('fill', 'rgba(10,14,20,0.78)');
                 lg.appendChild(gapRect);
             }
 
+            /* ── SVG amber axis line ──────────────────────────────── */
+            if (tlAxisEl && tlAxisEl.style.display !== 'none') {
+                var aLine = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                aLine.setAttribute('x', leftW);
+                aLine.setAttribute('y', axisY - 1);   /* straddles the centre */
+                aLine.setAttribute('width', contentW);
+                aLine.setAttribute('height', 2);
+                aLine.setAttribute('fill', 'rgba(250,180,50,0.70)');
+                lg.appendChild(aLine);
+            }
+
+            /* ── Year labels just above the amber line ────────────── */
+            if (tlAxisEl && tlAxisEl.style.display !== 'none') {
+                var tl = timelineAbove || timelineBelow;
+                if (tl) {
+                    var win = tl.getWindow();
+                    var startMs = win.start.getTime();
+                    var endMs   = win.end.getTime();
+                    var durMs   = endMs - startMs;
+                    var startYr = win.start.getFullYear();
+                    var endYr   = win.end.getFullYear();
+                    var rangeYr = Math.max(1, endYr - startYr);
+                    /* Choose a label step that yields ≤10 visible labels */
+                    var steps = [1,2,5,10,25,50,100,200,250,500,1000,2000,5000];
+                    var step = steps[steps.length - 1];
+                    for (var si = 0; si < steps.length; si++) {
+                        if (rangeYr / steps[si] <= 10) { step = steps[si]; break; }
+                    }
+                    var firstYr = Math.ceil(startYr / step) * step;
+                    var textY   = axisY - 6;  /* baseline sits 6px above line centre */
+                    for (var yr = firstYr; yr <= endYr + step; yr += step) {
+                        var yMs = new Date(yr, 0, 1).getTime();
+                        var frac = (yMs - startMs) / durMs;
+                        var lx = leftW + frac * contentW;
+                        if (lx < leftW - 20 || lx > window.innerWidth + 20) { continue; }
+                        var lbl = yr >= 0 ? String(yr) : (Math.abs(yr) + ' BC');
+                        var txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        txt.setAttribute('x', lx);
+                        txt.setAttribute('y', textY);
+                        txt.setAttribute('text-anchor', 'middle');
+                        txt.setAttribute('fill', '#fbbf24');
+                        txt.setAttribute('font-size', '11');
+                        txt.setAttribute('font-weight', '600');
+                        txt.setAttribute('letter-spacing', '0.3');
+                        txt.setAttribute('font-family', 'system-ui, sans-serif');
+                        txt.textContent = lbl;
+                        lg.appendChild(txt);
+                    }
+                }
+            }
+
+            /* ── SVG helper factories ─────────────────────────────── */
             function makeLine(x1, y1, x2, y2, stroke, sw, dash, glow) {
                 var el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 el.setAttribute('x1', x1); el.setAttribute('y1', y1);
@@ -331,6 +381,7 @@
                 return el;
             }
 
+            /* ── Connector lines + dots for every range event ─────── */
             function drawFor(el, axisAtBottom) {
                 if (!el || el.style.display === 'none') { return; }
                 el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
@@ -338,12 +389,10 @@
                     if (r.width < 4) { return; }
                     var itemY = axisAtBottom ? r.bottom : r.top;
                     [r.left, r.right].forEach(function (x) {
-                        /* dark shadow line then glowing amber line, edge to axis */
                         lg.appendChild(makeLine(x, itemY, x, axisY,
                             'rgba(0,0,0,0.85)', 6, '6,4', false));
                         lg.appendChild(makeLine(x, itemY, x, axisY,
                             'rgba(251,191,36,1)', 3, '6,4', true));
-                        /* glow halo + solid dot at axis */
                         lg.appendChild(makeDot(x, axisY, 10,
                             'rgba(251,191,36,0.22)', null, null));
                         lg.appendChild(makeDot(x, axisY, 6,

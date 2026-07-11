@@ -1,58 +1,63 @@
 ---
 name: Bilateral timeline SVG overlay
-description: How connector lines from range events to the amber axis are implemented; confirmed root cause and fixes
+description: How connector lines and the custom axis line/labels are implemented; confirmed root causes and architecture
 ---
 
-## Current architecture (body-fixed SVG)
-A `position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2147483647; pointer-events:none`
-SVG is appended to `document.body` from `setupRangeLines()`. It draws:
-1. A dark background rect spanning the gap band (gapTop → axisY) to ensure contrast
-2. A 6px dark shadow + 3px amber glowing dashed line (strokeDasharray "6,4") from each range-event left/right edge to `axisY`
-3. An amber glow circle (r=10, 22% opacity) + solid amber dot (r=6) at `axisY`
+## Architecture (current)
 
-`redraw()` is called on `timelineAbove.on('changed')`, `timelineBelow.on('changed')`, `resize`, and `scroll`.
+### Custom axis strip (#tl-axis)
+A 28px `<div id="tl-axis">` sits between `#timeline-above` and `#timeline-below` as a flex child
+of `.timeline-wrapper`. It is shown only in bilateral mode (`hasAbove && hasBelow`).
+It has no visible CSS — the amber line and year labels are drawn entirely in the body-fixed SVG.
 
-## Root cause — lines invisible in gap (CONFIRMED)
-The gap between the two timelines (~44px) has NO `.vis-foreground .vis-group` dark overlay.
-The medieval background image shows through at full brightness. A 3px dashed amber line is
-**invisible against the complex medieval image texture** — this is a pure visual contrast problem,
-NOT a z-index or compositor problem. The SVG IS above vis.js; the lines just can't be SEEN.
+### Body-fixed SVG (z-index:2147483647)
+Appended to `document.body` from `setupRangeLines()`. `redraw()` draws in this order:
+1. **Dark backdrop rect** — from `aboveCenter.bottom` to `axisY+2` (covers vis.js axis bar remnant + custom axis area). Fill `rgba(10,14,20,0.78)`. Needed because the gap has no group-row dark overlay so the medieval bg makes thin lines invisible.
+2. **SVG amber axis line** — 2px rect at `axisY-1` to `axisY+1`, full content width. Fill `rgba(250,180,50,0.70)`.
+3. **Year labels** — SVG `<text>` elements at `y = axisY - 6` (baseline 6px above line centre). Colour `#fbbf24`, font-size 11, font-weight 600. Interval chosen so ≤10 labels appear (steps array: 1,2,5,10,25,50,100,200,250,500,1000,2000,5000).
+4. **Connector lines** — 6px dark shadow + 3px amber glowing dashed line (dasharray "6,4") from each range-event left/right edge to `axisY`.
+5. **Dots** — amber glow circle (r=10, 22% opacity) + solid amber dot (r=6) at `axisY`.
 
-Evidence: amber dots (r=6/r=10) at the same axisY ARE always visible — large filled circles
-provide enough area to overcome the busy background. Thin lines do not.
+Listeners: `timelineAbove.on('changed')`, `timelineBelow.on('changed')`, `resize`, `scroll`.
 
-**Fix: draw a dark SVG rect (`rgba(10,14,20,0.75)`) covering the gap area in the SVG itself.**
-This gives the amber lines the same dark-background contrast as inside the group rows.
-Add an SVG `feGaussianBlur` glow filter on the amber lines (stdDeviation 2.5) for extra pop.
+### axisY derivation
+```js
+var axR = tlAxisEl.getBoundingClientRect();
+axisY = axR.bottom - 1;  // centre of the 2px amber line (drawn at bottom of #tl-axis)
+```
+Fallback (single-side mode): `belowEl .vis-panel.vis-center .top` or `aboveEl .vis-panel.vis-center .bottom`.
 
-## gapTop computation
+### gapTop
 ```js
 var aboveCenter = aboveEl.querySelector('.vis-panel.vis-center');
-if (aboveCenter) { gapTop = aboveCenter.getBoundingClientRect().bottom; }
+gapTop = aboveCenter.getBoundingClientRect().bottom;
 ```
-The gap rect x-offset = `.vis-panel.vis-left` width (the group-labels column, ~160px).
 
-## axisY computation
-`axisY` = viewport Y of the amber border-bottom in the below top-panel.
-- Sort `.vis-time-axis` elements in the below `vis-panel.vis-top` by height.
-- If the shortest is < 95% of the panel height → use its `.bottom` as axisY.
-- Otherwise fall back to `topPanel.getBoundingClientRect().bottom`.
-- Final fallbacks: `.vis-panel.vis-center` top (below), then center bottom (above).
+## Layout height maths (calcLayout)
+```
+bilateral=true : axisBarH=0,  customH=28, perG=(totalH-28)/totalGroups
+                 aboveH = aboveGroups*perG,  belowH = belowGroups*perG
+bilateral=false: axisBarH=52, customH=0,  perG=(totalH-52)/totalGroups
+                 aboveH/belowH = groups*perG + 52
+```
 
-## Glow filter (in SVG defs, created once at setup)
+## vis.js options — both timelines in bilateral mode
+```js
+showMinorLabels: false,
+showMajorLabels: false
+```
+This collapses vis.js's internal axis bar to near-zero, leaving only our SVG axis.
+
+## Root cause — lines invisible in gap (CONFIRMED)
+Thin dashed lines are invisible against the medieval bg image in the gap area (no group-row overlay).
+Fixed by drawing a dark SVG backdrop rect before any lines. Dots (r=6) always visible regardless.
+
+## Glow filter (SVG defs, created once at setup)
 ```
 feGaussianBlur stdDeviation="2.5" → feMerge(blur, SourceGraphic)
 ```
-Applied via `filter="url(#rl-glow)"` on the amber (foreground) line element only.
+Applied via `filter="url(#rl-glow)"` on the amber (foreground) connector line elements only.
 
 ## vis.js z-index reference (7.7.0 CDN)
-- `.vis-overlay`: z-index 10
-- `.vis-item.vis-selected`: z-index 2
-- `.vis-item`, `.vis-axis`, `.vis-current-time`: z-index 1
-- Our SVG at z-index:2147483647 in the body stacking context is safely above all of them.
-
-## gap size (~44px)
-- `#timeline-above .vis-panel.vis-bottom` (above axis bar): ~30px — labels hidden via CSS
-- `#timeline-below .vis-panel.vis-top` (below date labels): ~14px
-- `showMinorLabels: false, showMajorLabels: false` on the above timeline reduces vis.js allocation.
-- CSS `border: none !important` on `#timeline-above .vis-time-axis` removes the above amber border.
+`.vis-overlay`: 10 · `.vis-item.vis-selected`: 2 · `.vis-item/.vis-axis/.vis-current-time`: 1
+Our SVG at z-index:2147483647 in the body stacking context is above all of them.

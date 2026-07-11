@@ -431,6 +431,23 @@ html, body.timeline-view {
     overflow: hidden;
 }
 
+/* Custom axis spacer — amber line + year labels drawn in the body-fixed SVG */
+#tl-axis {
+    height: 28px;
+    flex-shrink: 0;
+    pointer-events: none;
+    display: none;          /* shown only when both sides have events */
+}
+
+/* Suppress vis.js axis-bar borders — our SVG draws the amber line */
+#timeline-above .vis-panel.vis-bottom,
+#timeline-below .vis-panel.vis-top {
+    background: transparent !important;
+}
+#timeline-below .vis-panel.vis-top .vis-time-axis {
+    border-bottom: none !important;
+}
+
 #timeline-above .vis-panel.vis-left,
 #timeline-below .vis-panel.vis-left {
     width: 160px !important;
