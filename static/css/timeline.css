@@ -577,12 +577,21 @@ html, body.timeline-view {
     border-bottom: none !important;
 }
 
-/* Hide vis.js built-in connector lines and axis dots for all events.
-   We replace these with our own styled amber dashed lines + centered
-   HTML-div dots so they appear as full circles on the amber axis rule. */
-.vis-item.vis-line,
+/* Hide vis.js built-in axis dots — they are D-shaped half-circles
+   because the vis-panel axis bar is collapsed to height:0 and clips
+   the lower (or upper) hemisphere.  We draw our own full-circle HTML
+   dots at exactly axisY via the dotLayer overlay instead. */
 .vis-item.vis-dot {
     display: none !important;
+}
+
+/* Style vis.js connector lines (box events) to match the amber theme.
+   We keep these visible; only the dots are replaced. */
+.vis-item.vis-line {
+    border-left-width: 2px !important;
+    border-left-style: dashed !important;
+    border-left-color: rgba(251, 191, 36, 0.75) !important;
+    background: transparent !important;
 }
 
 /* ====================================================
