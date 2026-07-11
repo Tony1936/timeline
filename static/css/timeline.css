@@ -432,18 +432,16 @@ html, body.timeline-view {
     background: rgba(0, 0, 0, 0.32);  /* dark tint only on the actual timelines */
 }
 
-/* Custom axis spacer — amber line + year labels drawn in the body-fixed SVG */
-#tl-axis {
-    height: 28px;
-    flex-shrink: 0;
-    pointer-events: none;
-    display: none;          /* shown only when both sides have events */
-}
-
-/* Suppress vis.js axis-bar borders — our SVG draws the amber line */
+/* Collapse vis.js internal axis bars to 0 so the SVG amber line
+   sits flush at the seam with no dead-zone padding */
 #timeline-above .vis-panel.vis-bottom,
 #timeline-below .vis-panel.vis-top {
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
     background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 #timeline-below .vis-panel.vis-top .vis-time-axis {
     border-bottom: none !important;

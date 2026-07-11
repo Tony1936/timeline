@@ -49,7 +49,6 @@
     {% else %}
     <div class="timeline-wrapper">
         <div id="timeline-above" class="timeline-half"></div>
-        <div id="tl-axis"></div>
         <div id="timeline-below" class="timeline-half"></div>
     </div>
     {% endif %}
@@ -95,20 +94,17 @@
     var hasBelow = belowGroups.length > 0;
 
     /* ── Layout ───────────────────────────────────────────────── */
-    var CUSTOM_AXIS_H = 28;  /* height of our SVG-drawn axis strip */
-
     function calcLayout() {
         var hero  = document.querySelector('.timeline-hero');
         var heroH = hero ? hero.offsetHeight : 130;
         var totalH = Math.max(400, window.innerHeight - heroH);
         var totalGroups = aboveGroups.length + belowGroups.length;
         var bilateral = hasAbove && hasBelow;
-        /* When bilateral, vis.js axis bars are suppressed; custom axis takes CUSTOM_AXIS_H.
-           When single-sided, vis.js draws its own axis bar (52px). */
-        var axisBarH  = bilateral ? 0  : 52;
-        var customH   = bilateral ? CUSTOM_AXIS_H : 0;
+        /* In bilateral mode vis.js axis bars are suppressed; no custom spacer.
+           In single-sided mode vis.js draws its own axis bar (~52px). */
+        var axisBarH = bilateral ? 0 : 52;
         var perG = totalGroups > 0
-            ? Math.max(60, Math.floor((totalH - customH - axisBarH) / totalGroups))
+            ? Math.max(60, Math.floor((totalH - axisBarH) / totalGroups))
             : 80;
         var aboveH = hasAbove ? aboveGroups.length * perG + axisBarH : 0;
         var belowH = hasBelow ? belowGroups.length * perG + axisBarH : 0;
@@ -183,10 +179,6 @@
         belowEl.style.display = 'none';
     }
 
-    /* Show custom axis strip only in bilateral mode */
-    var tlAxisEl = document.getElementById('tl-axis');
-    if (tlAxisEl) { tlAxisEl.style.display = (hasAbove && hasBelow) ? 'block' : 'none'; }
-
     var primaryTL = timelineBelow || timelineAbove;
 
     /* ── Fit to all items ─────────────────────────────────────── */
@@ -257,19 +249,21 @@
         svg.appendChild(lg);
         document.body.appendChild(svg);
 
+        var bilateral = hasAbove && hasBelow;
+
         function redraw() {
             lg.innerHTML = '';
 
-            /* ── axisY: centre of the amber axis line ─────────────── */
-            /* In bilateral mode we use the custom #tl-axis spacer div.
-               The amber line is drawn at the bottom 2px of that div.
-               axisY = bottom of div − 1  (centre of the 2px line).
+            /* ── axisY: the seam between above and below panels ───── */
+            /* In bilateral mode this is the exact pixel where aboveEl
+               ends and belowEl begins — the amber line is drawn here as
+               a pure SVG overlay with no gap div between the panels.
                In single-timeline mode fall back to vis.js panel edges. */
             var axisY = null;
-            var tlAxisEl = document.getElementById('tl-axis');
-            if (tlAxisEl && tlAxisEl.style.display !== 'none') {
-                var axR = tlAxisEl.getBoundingClientRect();
-                axisY = axR.bottom - 1;   /* centre of 2px amber line */
+            if (bilateral) {
+                if (aboveEl && aboveEl.style.display !== 'none') {
+                    axisY = aboveEl.getBoundingClientRect().bottom;
+                }
             } else if (timelineBelow && belowEl.style.display !== 'none') {
                 var bc = belowEl.querySelector('.vis-panel.vis-center');
                 if (bc) { axisY = bc.getBoundingClientRect().top; }
@@ -286,26 +280,19 @@
             if (leftPnl) { leftW = leftPnl.getBoundingClientRect().width; }
             var contentW = window.innerWidth - leftW;
 
-            /* gapTop still needed to know where to start connector lines */
-            var gapTop = null;
-            if (timelineAbove && aboveEl && aboveEl.style.display !== 'none') {
-                var aboveCenter = aboveEl.querySelector('.vis-panel.vis-center');
-                if (aboveCenter) { gapTop = aboveCenter.getBoundingClientRect().bottom; }
-            }
-
-            /* ── SVG amber axis line ──────────────────────────────── */
-            if (tlAxisEl && tlAxisEl.style.display !== 'none') {
+            /* ── SVG amber axis line (bilateral only) ─────────────── */
+            if (bilateral) {
                 var aLine = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                 aLine.setAttribute('x', leftW);
-                aLine.setAttribute('y', axisY - 1);   /* straddles the centre */
+                aLine.setAttribute('y', axisY - 1);
                 aLine.setAttribute('width', contentW);
                 aLine.setAttribute('height', 2);
-                aLine.setAttribute('fill', 'rgba(250,180,50,0.70)');
+                aLine.setAttribute('fill', 'rgba(250,180,50,0.90)');
                 lg.appendChild(aLine);
             }
 
-            /* ── Year labels just above the amber line ────────────── */
-            if (tlAxisEl && tlAxisEl.style.display !== 'none') {
+            /* ── Year labels centred on the amber line ────────────── */
+            if (bilateral) {
                 var tl = timelineAbove || timelineBelow;
                 if (tl) {
                     var win = tl.getWindow();
@@ -315,44 +302,39 @@
                     var startYr = win.start.getFullYear();
                     var endYr   = win.end.getFullYear();
                     var rangeYr = Math.max(1, endYr - startYr);
-                    /* Choose a label step that yields ≤10 visible labels */
                     var steps = [1,2,5,10,25,50,100,200,250,500,1000,2000,5000];
                     var step = steps[steps.length - 1];
                     for (var si = 0; si < steps.length; si++) {
                         if (rangeYr / steps[si] <= 10) { step = steps[si]; break; }
                     }
                     var firstYr = Math.ceil(startYr / step) * step;
-                    var textY   = axisY - 6;  /* baseline sits 6px above line centre */
+                    var textY   = axisY - 6;
                     for (var yr = firstYr; yr <= endYr + step; yr += step) {
                         var yMs = new Date(yr, 0, 1).getTime();
                         var frac = (yMs - startMs) / durMs;
                         var lx = leftW + frac * contentW;
                         if (lx < leftW - 20 || lx > window.innerWidth + 20) { continue; }
                         var lbl = yr >= 0 ? String(yr) : (Math.abs(yr) + ' BC');
-                        /* dark outline so labels read against any background */
-                        var txtStroke = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        txtStroke.setAttribute('x', lx);
-                        txtStroke.setAttribute('y', textY);
-                        txtStroke.setAttribute('text-anchor', 'middle');
-                        txtStroke.setAttribute('fill', 'none');
-                        txtStroke.setAttribute('stroke', 'rgba(0,0,0,0.85)');
-                        txtStroke.setAttribute('stroke-width', '3');
-                        txtStroke.setAttribute('stroke-linejoin', 'round');
-                        txtStroke.setAttribute('font-size', '11');
-                        txtStroke.setAttribute('font-weight', '600');
-                        txtStroke.setAttribute('letter-spacing', '0.3');
-                        txtStroke.setAttribute('font-family', 'system-ui, sans-serif');
-                        txtStroke.textContent = lbl;
-                        lg.appendChild(txtStroke);
+                        /* dark outline pass so labels read on any background */
+                        var txtS = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        txtS.setAttribute('x', lx); txtS.setAttribute('y', textY);
+                        txtS.setAttribute('text-anchor', 'middle');
+                        txtS.setAttribute('fill', 'none');
+                        txtS.setAttribute('stroke', 'rgba(0,0,0,0.85)');
+                        txtS.setAttribute('stroke-width', '3');
+                        txtS.setAttribute('stroke-linejoin', 'round');
+                        txtS.setAttribute('font-size', '11');
+                        txtS.setAttribute('font-weight', '600');
+                        txtS.setAttribute('font-family', 'system-ui, sans-serif');
+                        txtS.textContent = lbl;
+                        lg.appendChild(txtS);
                         /* amber fill on top */
                         var txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        txt.setAttribute('x', lx);
-                        txt.setAttribute('y', textY);
+                        txt.setAttribute('x', lx); txt.setAttribute('y', textY);
                         txt.setAttribute('text-anchor', 'middle');
                         txt.setAttribute('fill', '#fbbf24');
                         txt.setAttribute('font-size', '11');
                         txt.setAttribute('font-weight', '600');
-                        txt.setAttribute('letter-spacing', '0.3');
                         txt.setAttribute('font-family', 'system-ui, sans-serif');
                         txt.textContent = lbl;
                         lg.appendChild(txt);
