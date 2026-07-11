@@ -286,26 +286,11 @@
             if (leftPnl) { leftW = leftPnl.getBoundingClientRect().width; }
             var contentW = window.innerWidth - leftW;
 
-            /* ── gapTop: bottom of above centre panel ─────────────── */
-            /* The gap has no group-row dark overlay so the medieval image
-               shows through at full brightness — thin amber lines become
-               invisible without a dark backdrop. */
+            /* gapTop still needed to know where to start connector lines */
             var gapTop = null;
             if (timelineAbove && aboveEl && aboveEl.style.display !== 'none') {
                 var aboveCenter = aboveEl.querySelector('.vis-panel.vis-center');
                 if (aboveCenter) { gapTop = aboveCenter.getBoundingClientRect().bottom; }
-            }
-
-            /* ── Dark backdrop across the entire axis strip ───────── */
-            if (gapTop !== null && axisY > gapTop) {
-                var gapRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                gapRect.setAttribute('x', leftW);
-                gapRect.setAttribute('y', gapTop);
-                gapRect.setAttribute('width', contentW);
-                /* extend rect to cover amber line too */
-                gapRect.setAttribute('height', axisY - gapTop + 2);
-                gapRect.setAttribute('fill', 'rgba(10,14,20,0.78)');
-                lg.appendChild(gapRect);
             }
 
             /* ── SVG amber axis line ──────────────────────────────── */
@@ -344,6 +329,22 @@
                         var lx = leftW + frac * contentW;
                         if (lx < leftW - 20 || lx > window.innerWidth + 20) { continue; }
                         var lbl = yr >= 0 ? String(yr) : (Math.abs(yr) + ' BC');
+                        /* dark outline so labels read against any background */
+                        var txtStroke = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        txtStroke.setAttribute('x', lx);
+                        txtStroke.setAttribute('y', textY);
+                        txtStroke.setAttribute('text-anchor', 'middle');
+                        txtStroke.setAttribute('fill', 'none');
+                        txtStroke.setAttribute('stroke', 'rgba(0,0,0,0.85)');
+                        txtStroke.setAttribute('stroke-width', '3');
+                        txtStroke.setAttribute('stroke-linejoin', 'round');
+                        txtStroke.setAttribute('font-size', '11');
+                        txtStroke.setAttribute('font-weight', '600');
+                        txtStroke.setAttribute('letter-spacing', '0.3');
+                        txtStroke.setAttribute('font-family', 'system-ui, sans-serif');
+                        txtStroke.textContent = lbl;
+                        lg.appendChild(txtStroke);
+                        /* amber fill on top */
                         var txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                         txt.setAttribute('x', lx);
                         txt.setAttribute('y', textY);

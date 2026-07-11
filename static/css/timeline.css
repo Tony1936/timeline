@@ -420,7 +420,7 @@ html, body.timeline-view {
     flex-direction: column;
     min-height: 0;
     position: relative;
-    background: rgba(0, 0, 0, 0.32);
+    background: transparent;     /* no tint here — avoids darkening #tl-axis */
     isolation: isolate;
     border-top: 1px solid rgba(160, 130, 60, 0.3);
 }
@@ -429,6 +429,7 @@ html, body.timeline-view {
 #timeline-below {
     flex-shrink: 0;
     overflow: hidden;
+    background: rgba(0, 0, 0, 0.32);  /* dark tint only on the actual timelines */
 }
 
 /* Custom axis spacer — amber line + year labels drawn in the body-fixed SVG */
