@@ -220,10 +220,13 @@
         var wrapEl = document.querySelector('.timeline-wrapper');
         if (!wrapEl) { return; }
 
-        /* SVG layer for dashed in-panel lines and axis dots (body-fixed) */
+        /* SVG layer — absolutely positioned inside the timeline-wrapper so it
+           shares the same stacking context as vis.js and is guaranteed to be
+           above all vis.js elements (z-index:999 > vis.js's z-index:1-10).
+           Coordinates are wrapper-relative (subtract wrapRect.top/left). */
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;'
-            + 'pointer-events:none;z-index:2147483647;overflow:visible;';
+        svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;'
+            + 'pointer-events:none;z-index:999;overflow:visible;';
 
         /* Glow filter — makes amber lines visible against any background */
         var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
@@ -247,29 +250,31 @@
 
         var lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         svg.appendChild(lg);
-        document.body.appendChild(svg);
+        wrapEl.appendChild(svg);
 
         var bilateral = hasAbove && hasBelow;
 
         function redraw() {
             lg.innerHTML = '';
 
+            /* All coordinates are relative to wrapEl's top-left corner.
+               The SVG is position:absolute inside wrapEl so its (0,0)
+               is the wrapper's top-left — subtract wrapRect.top/left from
+               any getBoundingClientRect() values to convert. */
+            var wrapRect = wrapEl.getBoundingClientRect();
+
             /* ── axisY: the seam between above and below panels ───── */
-            /* In bilateral mode this is the exact pixel where aboveEl
-               ends and belowEl begins — the amber line is drawn here as
-               a pure SVG overlay with no gap div between the panels.
-               In single-timeline mode fall back to vis.js panel edges. */
             var axisY = null;
             if (bilateral) {
                 if (aboveEl && aboveEl.style.display !== 'none') {
-                    axisY = aboveEl.getBoundingClientRect().bottom;
+                    axisY = aboveEl.getBoundingClientRect().bottom - wrapRect.top;
                 }
             } else if (timelineBelow && belowEl.style.display !== 'none') {
                 var bc = belowEl.querySelector('.vis-panel.vis-center');
-                if (bc) { axisY = bc.getBoundingClientRect().top; }
+                if (bc) { axisY = bc.getBoundingClientRect().top - wrapRect.top; }
             } else if (timelineAbove && aboveEl.style.display !== 'none') {
                 var ac = aboveEl.querySelector('.vis-panel.vis-center');
-                if (ac) { axisY = ac.getBoundingClientRect().bottom; }
+                if (ac) { axisY = ac.getBoundingClientRect().bottom - wrapRect.top; }
             }
             if (axisY === null) { return; }
 
@@ -278,7 +283,7 @@
             var leftPnl = (belowEl && belowEl.style.display !== 'none' ? belowEl : aboveEl)
                           .querySelector('.vis-panel.vis-left');
             if (leftPnl) { leftW = leftPnl.getBoundingClientRect().width; }
-            var contentW = window.innerWidth - leftW;
+            var contentW = wrapRect.width - leftW;
 
             /* ── SVG amber axis line (bilateral only) ─────────────── */
             if (bilateral) {
@@ -313,7 +318,7 @@
                         var yMs = new Date(yr, 0, 1).getTime();
                         var frac = (yMs - startMs) / durMs;
                         var lx = leftW + frac * contentW;
-                        if (lx < leftW - 20 || lx > window.innerWidth + 20) { continue; }
+                        if (lx < leftW - 20 || lx > wrapRect.width + 20) { continue; }
                         var lbl = yr >= 0 ? String(yr) : (Math.abs(yr) + ' BC');
                         /* dark outline pass so labels read on any background */
                         var txtS = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -365,29 +370,31 @@
             }
 
             /* ── Connector lines + dots for every range event ─────── */
-            /* Two-pass render: all lines drawn first, then all dots on
-               top so nothing cuts through them.
-               Dot centres are offset to sit FULLY inside their own panel:
-               above-panel dots at axisY − DOT_R (entirely above the line),
-               below-panel dots at axisY + DOT_R (entirely below the line).
-               The connector line still terminates at axisY so the dot
-               appears to be anchored on the amber rule from its side. */
+            /* Two-pass render: lines first across both panels, then all
+               dots in a second pass so they always paint on top.
+               The SVG is inside the wrapper's stacking context (z-index:999)
+               so dots centered exactly on axisY are never clipped or
+               obscured by vis.js elements in either panel. */
             var DOT_R = 7;
             var dots = [];   /* {x, dotY} */
 
             function drawLinesFor(el, axisAtBottom) {
                 if (!el || el.style.display === 'none') { return; }
-                var dotY = axisAtBottom ? axisY - DOT_R : axisY + DOT_R;
                 el.querySelectorAll('.vis-item.vis-range').forEach(function (item) {
                     var r = item.getBoundingClientRect();
                     if (r.width < 4) { return; }
-                    var itemY = axisAtBottom ? r.bottom : r.top;
-                    [r.left, r.right].forEach(function (x) {
+                    /* Convert viewport coords → wrapper-relative coords */
+                    var rx1 = r.left  - wrapRect.left;
+                    var rx2 = r.right - wrapRect.left;
+                    var itemY = axisAtBottom
+                        ? r.bottom - wrapRect.top
+                        : r.top    - wrapRect.top;
+                    [rx1, rx2].forEach(function (x) {
                         lg.appendChild(makeLine(x, itemY, x, axisY,
                             'rgba(0,0,0,0.85)', 6, '6,4', false));
                         lg.appendChild(makeLine(x, itemY, x, axisY,
                             'rgba(251,191,36,1)', 3, '6,4', true));
-                        dots.push({ x: x, dotY: dotY });
+                        dots.push({ x: x, dotY: axisY });
                     });
                 });
             }
@@ -395,7 +402,7 @@
             drawLinesFor(aboveEl, true);
             drawLinesFor(belowEl, false);
 
-            /* Second pass — every dot on top of every line */
+            /* Second pass — every dot centred exactly on the amber axis line */
             dots.forEach(function (d) {
                 lg.appendChild(makeDot(d.x, d.dotY, DOT_R,
                     '#fbbf24', 'rgba(10,8,2,0.85)', 2));
@@ -405,7 +412,6 @@
         if (timelineAbove) { timelineAbove.on('changed', redraw); }
         if (timelineBelow) { timelineBelow.on('changed', redraw); }
         window.addEventListener('resize', redraw);
-        window.addEventListener('scroll', redraw, { passive: true });
     }
     setupRangeLines();
 
