@@ -305,53 +305,102 @@
                 lg.appendChild(aLine);
             }
 
-            /* ── Year labels centred on the amber line ────────────── */
+            /* ── Date labels centred on the amber line ────────────── */
+            /* Covers years, months, and days depending on zoom level.
+               Font-size 17px (≈ 50% larger than the original 11px). */
             if (bilateral) {
                 var tl = timelineAbove || timelineBelow;
                 if (tl) {
-                    var win = tl.getWindow();
+                    var MNAMES = ['Jan','Feb','Mar','Apr','May','Jun',
+                                  'Jul','Aug','Sep','Oct','Nov','Dec'];
+                    var win    = tl.getWindow();
                     var startMs = win.start.getTime();
                     var endMs   = win.end.getTime();
                     var durMs   = endMs - startMs;
                     var startYr = win.start.getFullYear();
                     var endYr   = win.end.getFullYear();
-                    var rangeYr = Math.max(1, endYr - startYr);
-                    var steps = [1,2,5,10,25,50,100,200,250,500,1000,2000,5000];
-                    var step = steps[steps.length - 1];
-                    for (var si = 0; si < steps.length; si++) {
-                        if (rangeYr / steps[si] <= 10) { step = steps[si]; break; }
+                    var rangeYr = (endMs - startMs) / (365.25 * 24 * 3600 * 1000);
+                    var textY   = axisY - 7;
+                    var FS      = '17';
+
+                    /* helper: draw one label with dark outline + amber fill */
+                    function drawLabel(lx, lbl) {
+                        var s = document.createElementNS('http://www.w3.org/2000/svg','text');
+                        s.setAttribute('x', lx); s.setAttribute('y', textY);
+                        s.setAttribute('text-anchor','middle');
+                        s.setAttribute('fill','none');
+                        s.setAttribute('stroke','rgba(0,0,0,0.85)');
+                        s.setAttribute('stroke-width','3');
+                        s.setAttribute('stroke-linejoin','round');
+                        s.setAttribute('font-size', FS);
+                        s.setAttribute('font-weight','600');
+                        s.setAttribute('font-family','system-ui,sans-serif');
+                        s.textContent = lbl;
+                        lg.appendChild(s);
+                        var t = document.createElementNS('http://www.w3.org/2000/svg','text');
+                        t.setAttribute('x', lx); t.setAttribute('y', textY);
+                        t.setAttribute('text-anchor','middle');
+                        t.setAttribute('fill','#fbbf24');
+                        t.setAttribute('font-size', FS);
+                        t.setAttribute('font-weight','600');
+                        t.setAttribute('font-family','system-ui,sans-serif');
+                        t.textContent = lbl;
+                        lg.appendChild(t);
                     }
-                    var firstYr = Math.ceil(startYr / step) * step;
-                    var textY   = axisY - 6;
-                    for (var yr = firstYr; yr <= endYr + step; yr += step) {
-                        var yMs = new Date(yr, 0, 1).getTime();
-                        var frac = (yMs - startMs) / durMs;
-                        var lx = leftW + frac * contentW;
-                        if (lx < leftW - 20 || lx > wrapRect.width + 20) { continue; }
-                        var lbl = yr >= 0 ? String(yr) : (Math.abs(yr) + ' BC');
-                        /* dark outline pass so labels read on any background */
-                        var txtS = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        txtS.setAttribute('x', lx); txtS.setAttribute('y', textY);
-                        txtS.setAttribute('text-anchor', 'middle');
-                        txtS.setAttribute('fill', 'none');
-                        txtS.setAttribute('stroke', 'rgba(0,0,0,0.85)');
-                        txtS.setAttribute('stroke-width', '3');
-                        txtS.setAttribute('stroke-linejoin', 'round');
-                        txtS.setAttribute('font-size', '11');
-                        txtS.setAttribute('font-weight', '600');
-                        txtS.setAttribute('font-family', 'system-ui, sans-serif');
-                        txtS.textContent = lbl;
-                        lg.appendChild(txtS);
-                        /* amber fill on top */
-                        var txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        txt.setAttribute('x', lx); txt.setAttribute('y', textY);
-                        txt.setAttribute('text-anchor', 'middle');
-                        txt.setAttribute('fill', '#fbbf24');
-                        txt.setAttribute('font-size', '11');
-                        txt.setAttribute('font-weight', '600');
-                        txt.setAttribute('font-family', 'system-ui, sans-serif');
-                        txt.textContent = lbl;
-                        lg.appendChild(txt);
+
+                    if (rangeYr >= 2) {
+                        /* ── Year scale ───────────────────────────────── */
+                        var yrSteps = [1,2,5,10,25,50,100,200,250,500,1000,2000,5000];
+                        var step = yrSteps[yrSteps.length - 1];
+                        for (var si = 0; si < yrSteps.length; si++) {
+                            if (rangeYr / yrSteps[si] <= 10) { step = yrSteps[si]; break; }
+                        }
+                        var firstYr = Math.ceil(startYr / step) * step;
+                        for (var yr = firstYr; yr <= endYr + step; yr += step) {
+                            var yMs  = new Date(yr, 0, 1).getTime();
+                            var frac = (yMs - startMs) / durMs;
+                            var lx   = leftW + frac * contentW;
+                            if (lx < leftW - 20 || lx > wrapRect.width + 20) { continue; }
+                            drawLabel(lx, yr >= 0 ? String(yr) : (Math.abs(yr) + ' BC'));
+                        }
+                    } else if (rangeYr >= 1 / 12) {
+                        /* ── Month scale ──────────────────────────────── */
+                        var rangeMonths = rangeYr * 12;
+                        var mSteps = [1, 2, 3, 6];
+                        var mStep  = 6;
+                        for (var mi = 0; mi < mSteps.length; mi++) {
+                            if (rangeMonths / mSteps[mi] <= 10) { mStep = mSteps[mi]; break; }
+                        }
+                        var cur = new Date(win.start.getFullYear(),
+                            Math.floor(win.start.getMonth() / mStep) * mStep, 1);
+                        while (cur.getTime() <= endMs + mStep * 31 * 86400000) {
+                            var frac = (cur.getTime() - startMs) / durMs;
+                            var lx   = leftW + frac * contentW;
+                            if (lx >= leftW - 20 && lx <= wrapRect.width + 20) {
+                                drawLabel(lx, MNAMES[cur.getMonth()] + ' ' + cur.getFullYear());
+                            }
+                            cur.setMonth(cur.getMonth() + mStep);
+                        }
+                    } else {
+                        /* ── Day scale ────────────────────────────────── */
+                        var rangeDays = durMs / 86400000;
+                        var dSteps = [1, 2, 5, 7, 10, 14];
+                        var dStep  = 14;
+                        for (var di = 0; di < dSteps.length; di++) {
+                            if (rangeDays / dSteps[di] <= 10) { dStep = dSteps[di]; break; }
+                        }
+                        var sd  = new Date(startMs);
+                        var cur = new Date(sd.getFullYear(), sd.getMonth(),
+                            Math.ceil(sd.getDate() / dStep) * dStep || 1);
+                        while (cur.getTime() <= endMs + dStep * 86400000) {
+                            var frac = (cur.getTime() - startMs) / durMs;
+                            var lx   = leftW + frac * contentW;
+                            if (lx >= leftW - 20 && lx <= wrapRect.width + 20) {
+                                drawLabel(lx, cur.getDate() + ' ' + MNAMES[cur.getMonth()]
+                                              + ' ' + cur.getFullYear());
+                            }
+                            cur.setDate(cur.getDate() + dStep);
+                        }
                     }
                 }
             }
